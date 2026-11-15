@@ -147,5 +147,5 @@ Coverage ranges are trimmed accordingly.
 * User data export: a versioned JSON archive (`wickframe-export-v1.zip`) containing
   layouts, drawings, watchlists, alerts (without secrets) and preferences, with a
   JSON Schema for each file.
-* Candles: CSV (documented columns) and Parquet (columnar; via a pure-Go Parquet
-  writer chosen at M3).
+* Candles: CSV (documented columns) and Parquet (columnar, zstd; written with Apache
+  arrow-go, [ADR-0020](../adr/0020-parquet-export-library.md)).

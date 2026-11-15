@@ -22,14 +22,14 @@ Start new records from the [template](template.md).
 | [0014](0014-authentication.md) | Sessions, Argon2id, opaque API tokens, OIDC, passkeys | Accepted | 2026-11-13 |
 | [0015](0015-supply-chain-and-release.md) | Supply chain: GoReleaser, cosign, SBOM, provenance, distroless | Accepted | 2026-11-13 |
 | [0016](0016-connector-extension-model.md) | Built-in connectors in-process; third-party plugins out-of-process (M4) | Accepted | 2026-11-13 |
+| [0017](0017-cross-process-event-bus.md) | Cross-process event bus: PostgreSQL NOTIFY doorbell first, embedded NATS at scale | Accepted | 2026-11-14 |
+| [0018](0018-user-script-engine.md) | Starlark as the user-script engine (pending the M4 spike) | Proposed | 2026-11-14 |
+| [0019](0019-typescript-api-client-generator.md) | Generate the web UI's API client with orval | Accepted | 2026-11-14 |
+| [0020](0020-parquet-export-library.md) | Write Parquet exports with Apache arrow-go | Accepted | 2026-11-14 |
 
 ## Pending decisions
 
-These are known open questions. Each will get its own ADR when it is decided.
-
 | Topic | Needed by | Notes |
 |---|---|---|
-| User-script engine: Starlark or goja | M4 | Spike defined in ADR-0011 |
-| Network-capable bus for multi-process roles | When scale requires it | Path described in ADR-0003 |
-| Generated TypeScript API client tool | M1 | Must support OpenAPI 3.1 |
-| Desktop code-signing certificates and funding | M3 | ADR-0015 |
+| Confirm or replace the user-script engine | M4 | [ADR-0018](0018-user-script-engine.md) is *proposed*; the spike criteria are listed there |
+| Backtesting design | After v1.0 | See the [roadmap](../product/roadmap.md) |

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Accepted |
-| **Last reviewed** | 2026-11-13 |
+| **Last reviewed** | 2026-11-14 |
 | **Decision** | [ADR-0015](../adr/0015-supply-chain-and-release.md) |
 
 ## 1. Versioning

@@ -68,9 +68,9 @@ These are deliberate. Changing any of them requires an Architecture Decision Rec
 | **Providing or redistributing market data.** | Market data is licensed; redistribution needs exchange agreements and costs money. Users connect their own sources ([ADR-0006](../adr/0006-bring-your-own-market-data.md)). |
 | **A social network** (public ideas, followers, chat). | Not what makes the product valuable to P1–P3, and moderation is costly. |
 | **AI or LLM features at runtime.** | Project constraint: no inference cost, no AI dependency. |
-| **Native mobile apps in app stores.** | Project constraint. Mobile use is served by a responsive web UI and push notifications. |
+| **App store distribution** (Apple App Store, Google Play, Microsoft Store), including native mobile apps. | Project constraint. Everything is distributed openly through GitHub and the project website. Mobile use is served by a responsive web UI and push notifications. |
 | **Financial advice, signals or recommendations.** | Legal exposure; out of scope for a tool. |
-| **Being compatible with a proprietary scripting language.** | Licensing and trademark risk; we design an open scripting interface instead. |
+| **Being compatible with a proprietary scripting language.** | Licensing risk; we design an open scripting interface instead. |
 | **Copying any commercial product's brand, assets or look.** | We compete on features and openness, not imitation. |
 
 ## 6. Product principles

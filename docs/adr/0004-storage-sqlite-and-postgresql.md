@@ -35,7 +35,7 @@ Chosen option: **SQLite + PostgreSQL behind repository interfaces**.
 | Concern | Choice | Version at decision | Notes |
 |---|---|---|---|
 | SQLite driver | `modernc.org/sqlite` | v1.62.0 (2026-11-07) | Pure Go: no cgo, so cross-compiling is trivial. Revisit `ncruces/go-sqlite3` when it reaches 1.0. |
-| PostgreSQL driver | `github.com/jackc/pgx/v5` | v5.11.0 (2026-09-07) | Native protocol, pooling via `pgxpool`. Minimum supported server: PostgreSQL 16. |
+| PostgreSQL driver | `github.com/jackc/pgx/v5` | v5.13.0 (2026-11-11) | Native protocol, pooling via `pgxpool`. Minimum supported server: PostgreSQL 16. |
 | Query generation | `sqlc` | v1.31.1 (2026-04-22) | One sqlc config per dialect, generating `internal/store/sqlite/db` and `internal/store/postgres/db`. sqlc cannot share one query set across engines. |
 | Migrations | `pressly/goose` v3 | v3.30.1 (2026-11-12) | SQL migrations embedded with `embed.FS`, in separate directories `migrations/sqlite` and `migrations/postgres`. Forward-only in production (FR-OPS-02). |
 

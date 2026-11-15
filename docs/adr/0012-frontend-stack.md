@@ -41,7 +41,7 @@ Versions verified on npm and GitHub, 2026-11-13:
 | End-to-end tests | Playwright | 1.65.x | Cross-browser (Chromium, Firefox, WebKit) and visual comparisons. |
 | Package manager | pnpm | 12.x | Strict dependency resolution; pinned with the `packageManager` field. |
 | i18n | i18next + react-i18next | latest at M1 | Mature; message catalogs in JSON. |
-| API client | Generated from `api/openapi.yaml` | — | Exact tool chosen at M1 (for example `openapi-typescript` with `openapi-fetch`); must support OpenAPI 3.1. |
+| API client | Generated from `api/openapi.yaml` with **orval** | 8.47.x | See [ADR-0019](0019-typescript-api-client-generator.md). |
 
 **Data-flow rule for real-time updates:** WebSocket messages do **not** go through
 React state. The real-time client pushes candle and indicator updates straight

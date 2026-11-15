@@ -43,8 +43,8 @@ Two different needs involve user-provided logic:
    and **goja** on safety (memory accounting, escape surface), performance (an
    EMA/RSI-style indicator over 100k bars), and authoring experience. **wazero** is
    the documented fallback for multi-tenant servers that need hard memory
-   isolation. The spike's outcome will be recorded as a new ADR that supersedes
-   point 2 of this one.
+   isolation. The desk research and provisional choice (Starlark) are in
+   [ADR-0018](0018-user-script-engine.md), which the spike will confirm or replace.
 
 Constraints any script engine must satisfy (NFR-SEC-05):
 

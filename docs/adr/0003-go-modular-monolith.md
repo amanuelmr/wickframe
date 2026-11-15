@@ -75,9 +75,9 @@ monolithic mode):
 | `all` (default) | everything above |
 
 Running roles in separate processes requires a **network-capable bus** and shared
-PostgreSQL. That is *not* built now. It will be specified in a future ADR when
-NFR-PERF-04/05 can no longer be met by one node. What we do now is cheap and
-protects that path:
+PostgreSQL. That is *not* built now. The staged plan and its triggers are in
+[ADR-0017](0017-cross-process-event-bus.md). What we do now is cheap and protects
+that path:
 
 1. Modules talk only through interfaces and the bus, so moving a module across a
    process boundary means swapping the adapter, not rewriting it.

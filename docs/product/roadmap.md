@@ -70,7 +70,7 @@ NFR-REL-01…05 met; SSRF and webhook-signing tests green; upgrade test from v0.
 
 | Area | Requirements |
 |---|---|
-| Desktop | FR-OPS-07 (Wails v3, signed if funded) |
+| Desktop | FR-OPS-07 (Wails v3) |
 | Teams | FR-USER-03 (OIDC), 04 (passkeys, TOTP), 05 (roles and sharing) |
 | Charting | FR-CHART-09 (multi-chart grid and sync), FR-ALERT-03, 11 (drawing alerts, draggable alert lines) |
 | Data | FR-DATA-12 (corporate actions), 15 (CSV/Parquet export); OANDA, Bybit, OKX connectors |

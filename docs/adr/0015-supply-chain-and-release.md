@@ -33,17 +33,15 @@ Versions at decision (2026-11-13) are in parentheses.
 | Vulnerability scanning | `govulncheck` (reachability-aware) and `pnpm audit` on every pull request and nightly; image scanning with Trivy or Grype on release. |
 | CI hardening | Actions pinned by full commit SHA; `permissions:` least-privilege per job; no `pull_request_target` with untrusted checkout; `step-security/harden-runner` or equivalent egress audit. |
 | Repository posture | **OpenSSF Scorecard** action (v2.5.x) weekly, badge in the README; branch protection; signed tags; secret scanning and push protection enabled. |
-| Desktop artifacts | Wails v3 signing for each operating system (Windows Authenticode, macOS Developer ID plus notarisation, Linux packages signed with cosign). The updater accepts only signed releases. |
+| Desktop artifacts | Covered by the same cosign-signed checksums, SBOMs and attestations as other artifacts. The updater accepts only signed releases. |
 
 ### Consequences
 
 * Good, because users and packagers can verify origin and integrity.
 * Good, because it meets OpenSSF and SLSA-aligned practice expected of serious
   projects.
-* Bad, because macOS and Windows code-signing certificates cost money. These are
-  deferred to M3, when the desktop build ships, and funding options will be
-  evaluated then. Until then, desktop builds are unsigned "preview" builds,
-  clearly labelled.
+* Bad, because desktop builds are not signed with Windows or macOS certificates,
+  so users see an operating-system warning on first launch.
 
 ### Confirmation
 

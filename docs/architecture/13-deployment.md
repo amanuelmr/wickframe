@@ -9,12 +9,16 @@
 
 ## 1. Distribution channels
 
+All artifacts are distributed openly through GitHub (Releases and the GitHub
+Container Registry) and the project website, which links to them. There is no app
+store distribution ([vision](../product/vision.md#5-non-goals)).
+
 | Channel | Artifact | Audience | Milestone |
 |---|---|---|---|
 | GitHub Releases | `wickframe_<ver>_<os>_<arch>.tar.gz/.zip` plus checksums, signatures, SBOMs | Everyone | M1 |
 | Container registry | `ghcr.io/amanuelmr/wickframe:<ver>` (multi-arch, distroless, non-root) | Server and homelab | M1 |
 | Docker Compose | `deploy/compose/docker-compose.yml` (Wickframe + PostgreSQL), plus a SQLite-only variant | Server and homelab | M1 |
-| Desktop installers | Wails v3 packages (Windows, macOS, Linux) | P1 users | M3 |
+| Desktop installers | Wails v3 packages (Windows, macOS, Linux), attached to GitHub Releases | P1 users | M3 |
 | Helm chart | `deploy/helm/wickframe` | Kubernetes users | M3+ |
 | Package managers | Homebrew tap, Scoop, AUR (community) | Convenience | Post-M3 |
 
