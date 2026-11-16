@@ -29,8 +29,8 @@ Prerequisites:
 | Tool | Version |
 |---|---|
 | Go | 1.27.x (pinned by the `toolchain` line in `go.mod`) |
-| Node.js | version in `.nvmrc` |
-| pnpm | version in `web/package.json` `packageManager` (`corepack enable`) |
+| Node.js | version in `.nvmrc` (install it with fnm, nvm or your package manager) |
+| pnpm | `npm install -g pnpm@12`; pnpm then switches to the version in `web/package.json` `packageManager` |
 | Docker | optional, for PostgreSQL integration tests |
 | make | any recent |
 
