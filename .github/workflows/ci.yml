@@ -48,6 +48,8 @@ jobs:
           cache-dependency-path: |
             go.sum
             tools/go.sum
+      - run: go mod tidy -diff
+      - run: go -C tools mod tidy -diff
       - run: go tool -modfile=tools/go.mod golangci-lint run ./...
       - run: go tool -modfile=tools/go.mod govulncheck ./...
 
