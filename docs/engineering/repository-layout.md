@@ -39,7 +39,7 @@ wickframe/
 │   ├── identity/
 │   ├── audit/
 │   ├── api/
-│   │   ├── http/             # huma operations, middleware
+│   │   ├── httpapi/          # huma operations, middleware
 │   │   └── ws/               # wickframe.v1 protocol gateway
 │   ├── store/
 │   │   ├── sqlite/           # sqlc.yaml, queries/, db/ (generated), repositories

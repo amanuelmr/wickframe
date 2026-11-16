@@ -50,7 +50,7 @@ flowchart TB
 
 | Role | Owns | Notes |
 |---|---|---|
-| `api` | `internal/api/http`, `internal/api/ws`, `internal/auth`, static UI | Stateless apart from WebSocket sessions. |
+| `api` | `internal/api/httpapi`, `internal/api/ws`, `internal/auth`, static UI | Stateless apart from WebSocket sessions. |
 | `ingest` | `internal/marketdata` (connectors, aggregation, backfill), candle persistence | Holds source connections; one owner per (source, stream). |
 | `alerts` | `internal/alert`, `internal/notify` | Holds alert evaluation state; drains the notification outbox. |
 
