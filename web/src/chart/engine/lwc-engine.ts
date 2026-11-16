@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import {
+  CandlestickSeries,
+  createChart,
+  type IChartApi,
+  type IPrimitivePaneView,
+  type ISeriesApi,
+  type ISeriesPrimitive,
+  type Logical,
+  PriceScaleMode,
+  type SeriesAttachedParameter,
+  type Time,
+  type UTCTimestamp,
+} from 'lightweight-charts';
+import { type Bar, logicalToTime, timeToLogical } from '../model/bars';
+import type { ChartEngine, ScaleMode } from './chart-engine';
+
+// Lightweight Charts uses UTC seconds; the rest of Wickframe uses UTC ms.
+const toTime = (ms: number) => (ms / 1000) as UTCTimestamp;
+
+class OverlayPrimitive implements ISeriesPrimitive<Time> {
+  private params: SeriesAttachedParameter<Time> | null = null;
+  private readonly views: readonly IPrimitivePaneView[];
+
+  constructor(draw: (ctx: CanvasRenderingContext2D) => void) {
+    this.views = [
+      {
+        zOrder: () => 'top',
+        renderer: () => ({
+          draw: (target) => target.useMediaCoordinateSpace(({ context }) => draw(context)),
+        }),
+      },
+    ];
+  }
+
+  attached(params: SeriesAttachedParameter<Time>): void {
+    this.params = params;
+  }
+
+  detached(): void {
+    this.params = null;
+  }
+
+  paneViews(): readonly IPrimitivePaneView[] {
+    return this.views;
+  }
+
+  requestUpdate(): void {
+    this.params?.requestUpdate();
+  }
+}
+
+export class LwcEngine implements ChartEngine {
+  readonly chart: IChartApi;
+  private readonly candles: ISeriesApi<'Candlestick'>;
+  private readonly overlays = new Set<OverlayPrimitive>();
+  private bars: readonly Bar[] = [];
+  private intervalMs = 60_000;
+
+  constructor(container: HTMLElement) {
+    // attributionLogo keeps its default (true); the licence requires it (ADR-0005 rule 3).
+    this.chart = createChart(container, { autoSize: true });
+    this.candles = this.chart.addSeries(CandlestickSeries);
+  }
+
+  setBars(bars: readonly Bar[], intervalMs: number): void {
+    this.bars = bars;
+    this.intervalMs = intervalMs;
+    this.candles.setData(
+      bars.map((b) => ({ time: toTime(b.t), open: b.o, high: b.h, low: b.l, close: b.c })),
+    );
+  }
+
+  setScaleMode(mode: ScaleMode): void {
+    this.chart.priceScale('right').applyOptions({
+      mode: mode === 'log' ? PriceScaleMode.Logarithmic : PriceScaleMode.Normal,
+    });
+  }
+
+  addOverlay(draw: (ctx: CanvasRenderingContext2D) => void): () => void {
+    const primitive = new OverlayPrimitive(draw);
+    this.candles.attachPrimitive(primitive);
+    this.overlays.add(primitive);
+    return () => {
+      this.candles.detachPrimitive(primitive);
+      this.overlays.delete(primitive);
+    };
+  }
+
+  requestRedraw(): void {
+    for (const o of this.overlays) o.requestUpdate();
+  }
+
+  timeToX(t: number): number | null {
+    // timeScale().timeToCoordinate returns null between bars and beyond the data.
+    const logical = timeToLogical(this.bars, t, this.intervalMs);
+    return logical === null ? null : this.chart.timeScale().logicalToCoordinate(logical as Logical);
+  }
+
+  priceToY(p: number): number | null {
+    return this.candles.priceToCoordinate(p);
+  }
+
+  xToTime(x: number): number | null {
+    const logical = this.chart.timeScale().coordinateToLogical(x);
+    return logical === null ? null : logicalToTime(this.bars, logical, this.intervalMs);
+  }
+
+  yToPrice(y: number): number | null {
+    return this.candles.coordinateToPrice(y);
+  }
+
+  setPanZoomEnabled(enabled: boolean): void {
+    this.chart.applyOptions({ handleScroll: enabled, handleScale: enabled });
+  }
+
+  visibleRange(): { from: number; to: number } | null {
+    return this.chart.timeScale().getVisibleLogicalRange();
+  }
+
+  setVisibleRange(range: { from: number; to: number }): void {
+    this.chart.timeScale().setVisibleLogicalRange(range);
+  }
+
+  destroy(): void {
+    this.chart.remove();
+  }
+}
