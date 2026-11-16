@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
+    "@tanstack/router-plugin": "1.169.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/react": "19.3.0",
@@ -24,6 +25,7 @@
     "vitest": "5.1.0"
   },
   "dependencies": {
+    "@tanstack/react-router": "1.170.46",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   }
