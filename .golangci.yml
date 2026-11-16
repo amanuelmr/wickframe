@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Linter set from docs/architecture/14-quality.md §3.
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - contextcheck
+    - depguard
+    - errcheck
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - gocritic
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nilerr
+    - noctx
+    - prealloc
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - wrapcheck
+  settings:
+    depguard:
+      rules:
+        # Domain modules never import adapters (02-components §3).
+        domain:
+          files:
+            - "**/internal/marketdata/**"
+            - "!**/internal/marketdata/connector/**"
+            - "**/internal/indicator/**"
+            - "**/internal/workspace/**"
+            - "**/internal/alert/**"
+            - "**/internal/notify/**"
+            - "**/internal/identity/**"
+            - "**/internal/audit/**"
+          deny:
+            - pkg: github.com/amanuelmr/wickframe/internal/api
+              desc: domain modules must not import the API adapters
+            - pkg: github.com/amanuelmr/wickframe/internal/store
+              desc: domain modules must not import the store adapters
+            - pkg: github.com/amanuelmr/wickframe/internal/marketdata/connector
+              desc: domain modules must not import connectors
+            - pkg: database/sql
+              desc: persistence goes through the module's Repository port
+    forbidigo:
+      forbid:
+        - pattern: ^fmt\.Print.*$
+          msg: write to an injected io.Writer or log with slog
+        - pattern: ^log\.
+          msg: use log/slog
+        - pattern: ^time\.Now$
+          msg: use the injected clock.Clock
+  exclusions:
+    rules:
+      - path: internal/platform/clock/
+        text: time\.Now
+        linters:
+          - forbidigo
+      # wrapcheck applies at domain boundaries only (14-quality §3).
+      - path-except: internal/(marketdata|indicator|workspace|alert|notify|identity|audit)/
+        linters:
+          - wrapcheck
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/amanuelmr/wickframe
