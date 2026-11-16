@@ -101,7 +101,14 @@ export class LwcEngine implements ChartEngine {
   timeToX(t: number): number | null {
     // timeScale().timeToCoordinate returns null between bars and beyond the data.
     const logical = timeToLogical(this.bars, t, this.intervalMs);
-    return logical === null ? null : this.chart.timeScale().logicalToCoordinate(logical as Logical);
+    if (logical === null) return null;
+    // logicalToCoordinate returns 0 for fractional indexes (5.3.0), but the mapping is linear,
+    // so interpolate between the two whole indexes around it.
+    const ts = this.chart.timeScale();
+    const i = Math.floor(logical);
+    const x0 = ts.logicalToCoordinate(i as Logical);
+    const x1 = ts.logicalToCoordinate((i + 1) as Logical);
+    return x0 === null || x1 === null ? null : x0 + (logical - i) * (x1 - x0);
   }
 
   priceToY(p: number): number | null {
@@ -109,8 +116,14 @@ export class LwcEngine implements ChartEngine {
   }
 
   xToTime(x: number): number | null {
-    const logical = this.chart.timeScale().coordinateToLogical(x);
-    return logical === null ? null : logicalToTime(this.bars, logical, this.intervalMs);
+    // coordinateToLogical rounds up to a whole index, which would snap every anchor to a bar.
+    const ts = this.chart.timeScale();
+    const i = ts.coordinateToLogical(x);
+    if (i === null) return null;
+    const xi = ts.logicalToCoordinate(i);
+    const next = ts.logicalToCoordinate((i + 1) as Logical);
+    if (xi === null || next === null) return null;
+    return logicalToTime(this.bars, i + (x - xi) / (next - xi), this.intervalMs);
   }
 
   yToPrice(y: number): number | null {
