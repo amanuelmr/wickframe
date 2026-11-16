@@ -20,7 +20,7 @@ module** ([ADR-0003](../adr/0003-go-modular-monolith.md)):
 
 ```text
             ┌──────────── driving adapters ────────────┐
-            │  internal/api/http   internal/api/ws  CLI │
+            │  internal/api/httpapi internal/api/ws CLI │
             └───────────────┬──────────────────────────┘
                             ▼  calls services (ports)
    ┌──────────────────── domain modules ─────────────────────┐
@@ -50,7 +50,7 @@ module** ([ADR-0003](../adr/0003-go-modular-monolith.md)):
 | **Notify** | `internal/notify` | Notification channels, templates, a transactional outbox, delivery workers with retry. | `notification_channels`, `notification_outbox`, `notification_attempts` | alerts |
 | **Identity** | `internal/identity` | Users, roles, password credentials, sessions, API tokens, OIDC and WebAuthn linking. | `users`, `sessions`, `api_tokens`, `credentials` | api |
 | **Audit** | `internal/audit` | Append-only security audit log. | `audit_log` | all |
-| **HTTP API** | `internal/api/http` | huma operations: request mapping, authN/authZ middleware, Problem Details errors ([API](09-api.md)). | — | api |
+| **HTTP API** | `internal/api/httpapi` | huma operations: request mapping, authN/authZ middleware, Problem Details errors ([API](09-api.md)). | — | api |
 | **WebSocket gateway** | `internal/api/ws` | `wickframe.v1` protocol, per-client subscriptions, back-pressure ([real-time](05-realtime.md)). | — | api |
 | **Store adapters** | `internal/store/{sqlite,postgres}` | Implement every repository interface; migrations; sqlc code. | — | all |
 | **Script** (M4) | `internal/script` | Sandboxed user indicators ([ADR-0011](../adr/0011-scripting-engine.md), [ADR-0018](../adr/0018-user-script-engine.md)). | `scripts` | api, alerts |

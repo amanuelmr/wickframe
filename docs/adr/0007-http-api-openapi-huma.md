@@ -37,7 +37,7 @@ at decision: v2.40.0 (2026-10-27, MIT).
 
 Workflow:
 
-1. Handlers are written as typed huma operations in `internal/api/http`.
+1. Handlers are written as typed huma operations in `internal/api/httpapi`.
 2. `wickframe openapi > api/openapi.yaml` exports the document. CI fails if the
    committed file differs from the generated one.
 3. The frontend's TypeScript types and client are generated from `api/openapi.yaml`.

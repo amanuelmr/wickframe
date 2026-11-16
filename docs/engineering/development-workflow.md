@@ -62,7 +62,7 @@ plus `good first issue` and `help wanted`.
 - One logical change per pull request. Keep diffs reviewable: aim for under 400
   changed lines, excluding generated code and fixtures.
 - The pull-request title is a Conventional Commit message. PRs are
-  **squash-merged**, so the title becomes the commit on `main`.
+  **rebase-merged**, so each commit on the branch is kept on `main`.
 - The pull-request template must be completed: what and why, requirement IDs,
   testing evidence, screenshots for UI changes, ADR impact, docs updated.
 - **Required checks** (branch protection on `main`):
@@ -124,6 +124,6 @@ principles:
   frontend dev server, with a SQLite database and the default crypto connector.
 - **Pinned toolchain:** the Go version comes from `go.mod` (`toolchain`
   directive), Node from `.nvmrc`, pnpm from `packageManager` in `package.json`,
-  and Go-based tools via the `tool` directive in `go.mod`.
+  and Go-based tools via the `tool` directive in `tools/go.mod`.
 - `make check` runs the same checks as CI, locally.
 - **No secrets in the repo:** local credentials go in `.env.local` (git-ignored).
