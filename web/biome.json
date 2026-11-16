@@ -30,6 +30,23 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/**", "!src/chart/engine/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "lightweight-charts": "Only src/chart/engine may import lightweight-charts (ADR-0005)."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }
