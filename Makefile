@@ -2,7 +2,7 @@
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: dev check test lint web-check spdx generate build
+.PHONY: dev check test lint vuln web-check spdx generate build
 
 dev:
 	go run ./cmd/wickframe serve
@@ -14,6 +14,9 @@ test:
 
 lint:
 	go tool -modfile=tools/go.mod golangci-lint run ./...
+
+vuln:
+	go tool -modfile=tools/go.mod govulncheck ./...
 
 web-check:
 	cd web && pnpm lint && pnpm typecheck && pnpm test && pnpm build
