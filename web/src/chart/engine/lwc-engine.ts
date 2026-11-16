@@ -9,12 +9,13 @@ import {
   type ISeriesPrimitive,
   type Logical,
   PriceScaleMode,
+  type PrimitiveHoveredItem,
   type SeriesAttachedParameter,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import { type Bar, logicalToTime, timeToLogical } from '../model/bars';
-import type { ChartEngine, ScaleMode } from './chart-engine';
+import type { ChartEngine, Overlay, ScaleMode } from './chart-engine';
 
 // Lightweight Charts uses UTC seconds; the rest of Wickframe uses UTC ms.
 const toTime = (ms: number) => (ms / 1000) as UTCTimestamp;
@@ -23,12 +24,12 @@ class OverlayPrimitive implements ISeriesPrimitive<Time> {
   private params: SeriesAttachedParameter<Time> | null = null;
   private readonly views: readonly IPrimitivePaneView[];
 
-  constructor(draw: (ctx: CanvasRenderingContext2D) => void) {
+  constructor(private readonly overlay: Overlay) {
     this.views = [
       {
         zOrder: () => 'top',
         renderer: () => ({
-          draw: (target) => target.useMediaCoordinateSpace(({ context }) => draw(context)),
+          draw: (target) => target.useMediaCoordinateSpace(({ context }) => overlay.draw(context)),
         }),
       },
     ];
@@ -48,6 +49,11 @@ class OverlayPrimitive implements ISeriesPrimitive<Time> {
 
   requestUpdate(): void {
     this.params?.requestUpdate();
+  }
+
+  hitTest(x: number, y: number): PrimitiveHoveredItem | null {
+    const cursorStyle = this.overlay.cursorAt?.(x, y);
+    return cursorStyle ? { externalId: 'overlay', zOrder: 'top', cursorStyle } : null;
   }
 }
 
@@ -78,8 +84,8 @@ export class LwcEngine implements ChartEngine {
     });
   }
 
-  addOverlay(draw: (ctx: CanvasRenderingContext2D) => void): () => void {
-    const primitive = new OverlayPrimitive(draw);
+  addOverlay(overlay: Overlay): () => void {
+    const primitive = new OverlayPrimitive(overlay);
     this.candles.attachPrimitive(primitive);
     this.overlays.add(primitive);
     return () => {
