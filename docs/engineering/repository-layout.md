@@ -81,6 +81,7 @@ wickframe/
 | `api/openapi.yaml` | `wickframe openapi` | Yes. The API diff is reviewed in pull requests. |
 | `web/src/api/schema.d.ts` | OpenAPI → TypeScript generator | Yes |
 | `testdata/indicators/*` | `tools/refgen` | Yes |
+| `web/src/app/routeTree.gen.ts` | TanStack Router Vite plugin | Yes. `tsc` needs it before the first build. |
 | `web/dist/` | Vite | **No.** Built in CI and release; `internal/webui` embeds a placeholder in dev. |
 
 `make generate` regenerates everything. CI runs it and fails on any diff.
