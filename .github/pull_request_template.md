@@ -17,5 +17,5 @@ Refs <!-- e.g. FR-CHART-03, ADR-0005 -->
 
 <!--
 Commits must be signed off (git commit -s).
-PRs are rebase-merged, so keep each commit small and meaningful.
+PRs are never squash-merged, so keep each commit small and meaningful.
 -->
