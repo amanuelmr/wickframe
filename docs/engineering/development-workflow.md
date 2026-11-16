@@ -62,7 +62,8 @@ plus `good first issue` and `help wanted`.
 - One logical change per pull request. Keep diffs reviewable: aim for under 400
   changed lines, excluding generated code and fixtures.
 - The pull-request title is a Conventional Commit message. PRs are
-  **rebase-merged**, so each commit on the branch is kept on `main`.
+  merged with **Rebase and merge** or a **merge commit**, so every commit on the
+  branch is kept on `main`. PRs are never squash-merged.
 - The pull-request template must be completed: what and why, requirement IDs,
   testing evidence, screenshots for UI changes, ADR impact, docs updated.
 - **Required checks** (branch protection on `main`):
