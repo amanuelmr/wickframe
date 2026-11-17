@@ -4,11 +4,11 @@ package marketdata
 
 import "context"
 
-// Timeframe is a candle period (03-domain-model §2.3). The values are stored in
-// the candles table, so existing ones must never change.
+// Timeframe is a candle period. The values are stored, so existing ones must
+// never change.
 type Timeframe int16
 
-// Timeframes.
+// Timeframes from shortest to longest.
 const (
 	TF1m Timeframe = iota + 1
 	TF3m
@@ -25,8 +25,7 @@ const (
 	TF1M
 )
 
-// Candle is a closed candle (03-domain-model §2.4). Forming candles are never
-// stored, so it has no state.
+// Candle is a closed candle; forming candles are never stored.
 type Candle struct {
 	InstrumentID int32
 	TF           Timeframe
