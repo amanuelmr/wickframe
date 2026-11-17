@@ -127,6 +127,7 @@ principles:
   frontend dev server, with a SQLite database and the default crypto connector.
 - **Pinned toolchain:** the Go version comes from `go.mod` (`toolchain`
   directive), Node from `.nvmrc`, pnpm from `packageManager` in `package.json`,
-  and Go-based tools via the `tool` directive in `tools/go.mod`.
+  and Go-based tools via the `tool` directive in `tools/go.mod` (golangci-lint in
+  its own `tools/lint/go.mod`).
 - `make check` runs the same checks as CI, locally.
 - **No secrets in the repo:** local credentials go in `.env.local` (git-ignored).
