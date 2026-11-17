@@ -26,6 +26,7 @@ spdx:
 
 generate:
 	go generate ./...
+	go tool -modfile=tools/go.mod sqlc generate -f internal/store/sqlite/sqlc.yaml
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/wickframe ./cmd/wickframe
