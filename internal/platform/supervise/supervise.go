@@ -3,6 +3,9 @@
 // Package supervise runs long-lived components and restarts them when they fail
 // or panic (02-components §5). A Supervisor is itself a component, so
 // supervisors nest into the process's supervision tree.
+//
+// Restart waits use real timers, not the injected clock, so tests run the
+// Supervisor inside a testing/synctest bubble with clock.System.
 package supervise
 
 import (
