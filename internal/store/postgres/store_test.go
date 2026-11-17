@@ -22,9 +22,7 @@ import (
 	"github.com/amanuelmr/wickframe/internal/store/storetest"
 )
 
-// The server image to test against. CI runs both postgres:16-alpine, the oldest
-// supported server (ADR-0004), and postgres:18-alpine, the one we ship
-// (13-deployment), which is also the default.
+// CI also runs postgres:16-alpine, the oldest supported server.
 var image = cmp.Or(os.Getenv("WICKFRAME_TEST_POSTGRES_IMAGE"), "postgres:18-alpine")
 
 // startPostgres starts one server and returns a function that creates a fresh,
