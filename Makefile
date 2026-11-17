@@ -2,7 +2,7 @@
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: dev check test test-integration lint vuln web-check spdx generate build
+.PHONY: dev check test test-integration lint vuln web-check spdx generate migration build
 
 dev:
 	go run ./cmd/wickframe serve
@@ -31,6 +31,9 @@ generate:
 	go generate ./...
 	go tool -modfile=tools/go.mod sqlc generate -f internal/store/sqlite/sqlc.yaml
 	go tool -modfile=tools/go.mod sqlc generate -f internal/store/postgres/sqlc.yaml
+
+migration:
+	scripts/new-migration.sh "$(name)"
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/wickframe ./cmd/wickframe
