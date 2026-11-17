@@ -52,6 +52,15 @@ jobs:
       - run: go -C tools mod tidy -diff
       - run: go tool -modfile=tools/go.mod golangci-lint run ./...
       - run: go tool -modfile=tools/go.mod govulncheck ./...
+      - name: Generated code is up to date
+        run: |
+          make generate
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            git diff
+            echo "make generate changed files; run it and commit the result" >&2
+            exit 1
+          fi
 
   postgres:
     timeout-minutes: 15
