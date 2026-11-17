@@ -7,6 +7,7 @@
 package secret
 
 import (
+	"bytes"
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
@@ -56,16 +57,25 @@ func KeyID(key []byte) string {
 // NewKeyring returns a Keyring that seals with current and can also open values
 // sealed with any of previous.
 func NewKeyring(current []byte, previous ...[]byte) (*Keyring, error) {
+	if len(current) == 0 {
+		return nil, errors.New("no current secret key")
+	}
 	k := &Keyring{currentID: KeyID(current), aeads: make(map[string]cipher.AEAD)}
+	keys := make(map[string][]byte)
 	for _, key := range append([][]byte{current}, previous...) {
 		if len(key) != KeySize {
 			return nil, fmt.Errorf("secret key is %d bytes, want %d", len(key), KeySize)
 		}
+		id := KeyID(key)
+		if seen, ok := keys[id]; ok && !bytes.Equal(seen, key) {
+			return nil, fmt.Errorf("two different secret keys share key ID %s", id)
+		}
+		keys[id] = key
 		aead, err := chacha20poly1305.NewX(key)
 		if err != nil {
 			return nil, fmt.Errorf("secret key: %w", err)
 		}
-		k.aeads[KeyID(key)] = aead
+		k.aeads[id] = aead
 	}
 	return k, nil
 }

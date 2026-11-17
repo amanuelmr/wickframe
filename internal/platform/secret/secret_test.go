@@ -3,6 +3,8 @@
 package secret_test
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"testing"
@@ -113,6 +115,33 @@ func TestNewKeyringRejectsWrongKeySizes(t *testing.T) {
 		if _, err := secret.NewKeyring(secret.GenerateKey(), key); err == nil {
 			t.Errorf("NewKeyring with a %d-byte previous key succeeded, want error", len(key))
 		}
+	}
+}
+
+func TestNewKeyringRejectsAnEmptyCurrentKey(t *testing.T) {
+	t.Parallel()
+	if _, err := secret.NewKeyring(nil, secret.GenerateKey()); err == nil {
+		t.Fatal("NewKeyring without a current key succeeded, want error")
+	}
+}
+
+func TestNewKeyringRejectsDifferentKeysWithTheSameID(t *testing.T) {
+	t.Parallel()
+	// Key IDs are 32 bits, so a birthday collision turns up within about 100k keys.
+	byID := make(map[string][]byte)
+	for i := uint64(0); ; i++ {
+		sum := sha256.Sum256(binary.BigEndian.AppendUint64(nil, i))
+		key := sum[:]
+		if other, ok := byID[secret.KeyID(key)]; ok {
+			if _, err := secret.NewKeyring(key, other); err == nil {
+				t.Fatalf("NewKeyring accepted two keys with key ID %s", secret.KeyID(key))
+			}
+			if _, err := secret.NewKeyring(key, key); err != nil {
+				t.Fatalf("NewKeyring rejected the same key twice: %v", err)
+			}
+			return
+		}
+		byID[secret.KeyID(key)] = key
 	}
 }
 
