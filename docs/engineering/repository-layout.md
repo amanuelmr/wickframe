@@ -93,5 +93,6 @@ wickframe/
 | `make dev` | Backend with live reload + Vite dev server (proxy `/api` to Go) + fake connector |
 | `make check` | Everything CI runs locally: lint, type-check, tests, generate-diff |
 | `make test` / `make test-integration` / `make e2e` | Test tiers |
+| `make migration name=<x>` | Creates the next numbered, empty migration in both `migrations/sqlite` and `migrations/postgres` |
 | `make build` | `web` build + Go binary for the host platform |
 | `make release-dry-run` | `goreleaser release --snapshot --clean` |
