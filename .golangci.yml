@@ -71,6 +71,11 @@ linters:
         text: time\.Now
         linters:
           - forbidigo
+      # Inside a testing/synctest bubble time.Now is the bubble's fake clock.
+      - path: _test\.go$
+        text: time\.Now
+        linters:
+          - forbidigo
       # wrapcheck applies at domain boundaries only (14-quality §3).
       - path-except: internal/(marketdata|indicator|workspace|alert|notify|identity|audit)/
         linters:
