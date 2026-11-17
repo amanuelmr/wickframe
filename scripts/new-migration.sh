@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 
 # Creates the next numbered, empty goose migration in both dialect folders, so
-# they keep the same numbers and names (08-storage §3).
+# they keep the same numbers and names.
 set -euo pipefail
 
 name=${1:?usage: scripts/new-migration.sh <snake_case_name>}
