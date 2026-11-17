@@ -113,3 +113,18 @@ Rules:
 * <https://github.com/klinecharts/KLineChart>
 * FSF on Apache-2.0 compatibility: <https://www.gnu.org/licenses/license-list.html#apache2>
 * Not legal advice. Re-check the attribution terms on every major upgrade.
+
+### 2026-11-17 note: drawing-layer spike
+
+A spike on Lightweight Charts 5.3.0 confirmed this decision
+([findings](../spikes/drawing-layer.md)). The drawing layer needs three things from the
+`ChartEngine` interface, all expressed in Wickframe terms:
+
+* **Taking the pointer.** While a drawing is placed or dragged, the engine turns the chart's
+  own pan and zoom off, so one gesture never does both.
+* **Setting the cursor.** An overlay can return a CSS cursor for a point; the engine applies
+  it, because the library overrides a cursor set on its container.
+* **Accurate conversion between bars.** `timeToX` and `xToTime` work for any time, including
+  between bars, inside session gaps and outside the loaded data. The library's own
+  conversions handle whole bars only, so the adapter interpolates (see
+  [frontend §4](../architecture/10-frontend.md#4-drawing-tools-subsystem-chartdrawings)).
