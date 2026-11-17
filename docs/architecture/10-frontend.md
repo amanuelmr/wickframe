@@ -90,10 +90,30 @@ flowchart LR
 * Each tool is a **finite state machine** (idle → placing anchor 1 … → complete
   → selected → dragging handle), independent of the renderer.
 * Geometry is computed in **(time, price)** space and converted to pixels through
-  the engine's coordinate API at render time. Snapping ("magnet") goes to the
-  nearest O/H/L/C within a pixel radius.
+  the engine's coordinate API at render time.
+* **Between bars.** An anchor time is mapped to a fractional bar index, interpolating
+  between neighbouring bars inside the data (so session gaps such as weekends work)
+  and extrapolating by the bar interval before and after it. Lightweight Charts 5.3
+  converts only whole bar indexes (`logicalToCoordinate` returns 0 for a fractional
+  one, and `coordinateToLogical` rounds up), so the engine adapter interpolates
+  between the two whole indexes around the position, in both directions. Without
+  this, anchors between bars are drawn at the left edge and every click snaps to a
+  bar ([spike](../spikes/drawing-layer.md)).
+* **Snapping ("magnet")** is a deliberate drawing-layer feature: it snaps to the
+  nearest O/H/L/C within a pixel radius when enabled. Anchors are never snapped as a
+  side effect of the library's rounding.
 * Rendering uses Lightweight Charts **series primitives**. Hit-testing uses
   per-tool distance functions with a tolerance in CSS pixels.
+* **Pointer handling.** The library pans and zooms on mouse and touch events, not
+  pointer events. The drawing layer listens to pointer events in the capture phase.
+  When it takes the pointer, it calls `preventDefault()` on `pointerdown` (which
+  stops the compatibility mouse events) and turns the chart's pan and zoom off until
+  `pointerup` (touch events are not stopped otherwise). The hover cursor is set
+  through the primitive's hit test (`cursorStyle`), because the library overrides a
+  cursor set on the container.
+* **Autoscale.** Drawings are excluded from price autoscale, so a drawing can extend
+  past the visible price range. Including them later goes through the primitive's
+  `autoscaleInfo()`.
 * Commands (`create`, `move`, `restyle`, `delete`) go through an **undo/redo
   stack**, and are persisted with debounced batch saves
   (`POST /drawings:batchUpdate`), using optimistic updates with version checks.
