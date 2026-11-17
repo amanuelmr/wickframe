@@ -19,13 +19,13 @@ const module = "github.com/amanuelmr/wickframe"
 
 var domainModules = []string{"marketdata", "indicator", "workspace", "alert", "notify", "identity", "audit"}
 
-// Domain modules may import these other domain modules (the diagram's edges).
+// Domain modules may import these other domain modules.
 var domainEdges = map[string][]string{
 	"indicator": {"marketdata"},
 	"alert":     {"indicator", "marketdata", "notify"},
 }
 
-// The only third-party code a domain module may use (rule 2's exception).
+// The only third-party code a domain module may use.
 var domainThirdParty = map[string][]string{
 	"alert": {"github.com/expr-lang/expr"},
 }
