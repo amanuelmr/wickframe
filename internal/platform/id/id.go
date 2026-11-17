@@ -22,8 +22,7 @@ var Nil ID
 // ErrInvalid is returned by Parse for malformed input.
 var ErrInvalid = errors.New("invalid uuid")
 
-// New returns a UUIDv7 for time now. Pass the injected clock's time, never
-// time.Now(), so tests stay deterministic in their ordering.
+// New returns a UUIDv7 for time now, which should come from the injected clock.
 func New(now time.Time) ID {
 	var u ID
 	_, _ = rand.Read(u[6:]) // never fails since Go 1.24

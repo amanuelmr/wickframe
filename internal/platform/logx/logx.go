@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Standard attribute keys.
+// Keys that every component uses for the same attributes, so logs query alike.
 const (
 	KeyComponent = "component"
 	KeyRequestID = "request_id"
@@ -25,7 +25,7 @@ const (
 // Format is the log.format config value.
 type Format string
 
-// Log formats.
+// FormatAuto picks text when the output is a terminal and JSON otherwise.
 const (
 	FormatAuto Format = "auto"
 	FormatText Format = "text"
@@ -41,7 +41,7 @@ var secretWords = []string{"password", "token", "secret", "apikey", "authorizati
 
 var keyNormalizer = strings.NewReplacer("_", "", "-", "")
 
-// New returns a logger writing to w. FormatAuto picks text when w is a terminal.
+// New returns a logger writing to w.
 func New(w io.Writer, format Format, level slog.Leveler) (*slog.Logger, error) {
 	opts := &slog.HandlerOptions{Level: level, ReplaceAttr: redact}
 	switch format {
