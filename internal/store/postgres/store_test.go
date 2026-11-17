@@ -5,9 +5,11 @@
 package postgres_test
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"sync/atomic"
 	"testing"
 
@@ -20,8 +22,10 @@ import (
 	"github.com/amanuelmr/wickframe/internal/store/storetest"
 )
 
-// PostgreSQL 16 is the oldest supported server (ADR-0004).
-const image = "postgres:16-alpine"
+// The server image to test against. CI runs both postgres:16-alpine, the oldest
+// supported server (ADR-0004), and postgres:18-alpine, the one we ship
+// (13-deployment), which is also the default.
+var image = cmp.Or(os.Getenv("WICKFRAME_TEST_POSTGRES_IMAGE"), "postgres:18-alpine")
 
 // startPostgres starts one server and returns a function that creates a fresh,
 // empty database on it for each caller.
@@ -41,6 +45,7 @@ func startPostgres(t *testing.T) func(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("start %s: %v", image, err)
 	}
+	t.Logf("testing against %s", image)
 	admin, err := ctr.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
