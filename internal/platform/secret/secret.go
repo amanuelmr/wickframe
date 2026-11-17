@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -69,19 +70,35 @@ func NewKeyring(current []byte, previous ...[]byte) (*Keyring, error) {
 	return k, nil
 }
 
-// Seal encrypts plaintext with the current key. binding must identify where the
-// value is stored, as "table:column:rowID"; Open needs the same binding.
-func (k *Keyring) Seal(plaintext []byte, binding string) string {
+// Binding names where a sealed value is stored. It is the associated data of
+// the ciphertext, so a value only opens for the row it was sealed for.
+type Binding struct {
+	Table, Column, RowID string
+}
+
+// Fields are length-prefixed, so values cannot shift from one field to another
+// (Table "a:b", Column "c" differs from Table "a", Column "b:c").
+func (b Binding) bytes() []byte {
+	var out []byte
+	for _, f := range []string{b.Table, b.Column, b.RowID} {
+		out = binary.AppendUvarint(out, uint64(len(f)))
+		out = append(out, f...)
+	}
+	return out
+}
+
+// Seal encrypts plaintext with the current key, bound to b.
+func (k *Keyring) Seal(plaintext []byte, b Binding) string {
 	aead := k.aeads[k.currentID]
 	nonce := make([]byte, aead.NonceSize())
 	_, _ = rand.Read(nonce) // 192-bit random nonces are safe at any volume
-	ciphertext := aead.Seal(nil, nonce, plaintext, []byte(binding))
+	ciphertext := aead.Seal(nil, nonce, plaintext, b.bytes())
 	return "v1:" + k.currentID + ":" + b64.EncodeToString(nonce) + ":" + b64.EncodeToString(ciphertext)
 }
 
 // Open decrypts a value from Seal. It returns ErrUnknownKey when the key is not
 // in the Keyring and ErrInvalid for anything else that does not authenticate.
-func (k *Keyring) Open(sealed, binding string) ([]byte, error) {
+func (k *Keyring) Open(sealed string, b Binding) ([]byte, error) {
 	parts := strings.Split(sealed, ":")
 	if len(parts) != 4 || parts[0] != "v1" {
 		return nil, ErrInvalid
@@ -98,7 +115,7 @@ func (k *Keyring) Open(sealed, binding string) ([]byte, error) {
 	if err != nil {
 		return nil, ErrInvalid
 	}
-	plaintext, err := aead.Open(nil, nonce, ciphertext, []byte(binding))
+	plaintext, err := aead.Open(nil, nonce, ciphertext, b.bytes())
 	if err != nil {
 		return nil, ErrInvalid
 	}
