@@ -53,12 +53,17 @@ linters:
             - pkg: database/sql
               desc: persistence goes through the module's Repository port
     forbidigo:
+      # Match by package, so a logger variable named log is not mistaken for the log package.
+      analyze-types: true
       forbid:
         - pattern: ^fmt\.Print.*$
+          pkg: ^fmt$
           msg: write to an injected io.Writer or log with slog
-        - pattern: ^log\.
+        - pattern: ^log\..*$
+          pkg: ^log$
           msg: use log/slog
         - pattern: ^time\.Now$
+          pkg: ^time$
           msg: use the injected clock.Clock
   exclusions:
     rules:
