@@ -47,7 +47,7 @@ wickframe/
 │   │   └── storetest/        # shared contract tests
 │   ├── archtest/             # import-rule tests (ADR-0003)
 │   └── webui/                # embed.FS of web/dist
-├── migrations/
+├── migrations/               # embed.go embeds both directories into the binary
 │   ├── sqlite/               # NNNNN_name.sql (goose)
 │   └── postgres/             # same numbers/names
 ├── pkg/

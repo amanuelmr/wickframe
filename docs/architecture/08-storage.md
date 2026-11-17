@@ -105,8 +105,9 @@ Coverage ranges are trimmed accordingly.
 * Startup: acquire a migration lock (PostgreSQL advisory lock; SQLite exclusive
   transaction) → apply pending migrations → release. If `--no-migrate` is set and
   migrations are pending, refuse to start with a clear message.
-* **Forward-only** in production. Down migrations exist for development only and
-  are not shipped.
+* **Forward-only.** Migrations have only a `-- +goose Up` section, so nothing can
+  roll back a production schema. During development, undo a migration by
+  recreating the database.
 * **Expand/contract** for breaking schema changes. Release N adds the new
   structure and writes both; release N+1 migrates reads; release N+2 removes the
   old structure. This keeps an upgrade-then-rollback-of-the-binary safe across one
