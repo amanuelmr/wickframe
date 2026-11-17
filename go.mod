@@ -5,6 +5,7 @@ go 1.27
 toolchain go1.27.4
 
 require (
+	github.com/google/go-cmp v0.7.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.59.0
 )
