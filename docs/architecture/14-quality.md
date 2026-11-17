@@ -34,7 +34,8 @@ Each scenario names a stimulus, an expected response, and how it is verified.
 | **Integration** | Module wiring through the bus with a **fake connector** (scriptable deterministic market) | Go | Every PR |
 | **API** | Every OpenAPI operation: authZ matrix, validation, Problem Details shape | Go tests using the generated client | Every PR |
 | **E2E** | Critical user journeys in real browsers against a real binary | Playwright (Chromium, Firefox, WebKit) | Every PR (Chromium); nightly (all) |
-| **Visual regression** | Chart rendering, drawings, themes | Playwright screenshots | Every PR (affected areas) |
+| **Chart interaction** | Drawing create, select, drag and delete; pan, zoom and price-scale changes with drawings on screen; touch | Playwright (Chromium, Firefox, WebKit; WebKit covers the macOS and Linux desktop webviews) | Every PR touching `chart/` (all three browsers) |
+| **Visual regression** | Chart rendering, drawings, themes. Includes a trend line anchored inside a weekend gap, which catches a chart-library upgrade that breaks between-bars conversion ([spike](../spikes/drawing-layer.md)) | Playwright screenshots | Every PR (affected areas) |
 | **Accessibility** | WCAG 2.2 AA automated checks | axe-core | Every PR |
 | **Performance and load** | QS5, QS6, benchmarks | Go benchmarks + benchstat; load generator; Playwright traces | Nightly; release gate |
 | **Chaos / recovery** | QS3, QS4 | Fault injection, process kill | Nightly |
