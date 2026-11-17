@@ -10,7 +10,7 @@ import (
 	"github.com/amanuelmr/wickframe/internal/platform/secret"
 )
 
-const binding = "data_sources:credentials:0192f0c8-7b2a-7000-8000-000000000001"
+var binding = secret.Binding{Table: "data_sources", Column: "credentials", RowID: "0192f0c8-7b2a-7000-8000-000000000001"}
 
 func keyring(t *testing.T, current []byte, previous ...[]byte) *secret.Keyring {
 	t.Helper()
@@ -45,9 +45,23 @@ func TestOpenRejectsAnotherRowsBinding(t *testing.T) {
 	t.Parallel()
 	k := keyring(t, secret.GenerateKey())
 	sealed := k.Seal([]byte("api-key-123"), binding)
-	other := "data_sources:credentials:0192f0c8-7b2a-7000-8000-000000000002"
+	other := binding
+	other.RowID = "0192f0c8-7b2a-7000-8000-000000000002"
 	if _, err := k.Open(sealed, other); !errors.Is(err, secret.ErrInvalid) {
 		t.Fatalf("Open() with another row's binding = %v, want ErrInvalid", err)
+	}
+}
+
+func TestBindingsThatJoinToTheSameStringDoNotOpenEachOther(t *testing.T) {
+	t.Parallel()
+	k := keyring(t, secret.GenerateKey())
+	a := secret.Binding{Table: "a:b", Column: "c", RowID: "d"}
+	b := secret.Binding{Table: "a", Column: "b:c", RowID: "d"}
+	if _, err := k.Open(k.Seal([]byte("x"), a), b); !errors.Is(err, secret.ErrInvalid) {
+		t.Fatalf("a value sealed for %+v opened for %+v: %v", a, b, err)
+	}
+	if _, err := k.Open(k.Seal([]byte("x"), b), a); !errors.Is(err, secret.ErrInvalid) {
+		t.Fatalf("a value sealed for %+v opened for %+v: %v", b, a, err)
 	}
 }
 

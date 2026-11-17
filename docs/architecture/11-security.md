@@ -86,7 +86,8 @@ default.
      ACL). The user is told to back it up.
 * **Format:** `v1:<keyID>:<nonce>:<ciphertext>`, where `keyID` is the first 8 hex
   characters of the SHA-256 of the key. The *associated data* binds each
-  ciphertext to `table:column:rowID`, so ciphertexts cannot be swapped between rows.
+  ciphertext to its table, column and row ID, encoded with length-prefixed fields
+  so values cannot shift between fields, and ciphertexts cannot be swapped between rows.
 * **Rotation:** `wickframe secrets rotate --new-key-file …` re-encrypts all secrets
   under a new key ID, in a resumable job. The old key stays readable until rotation
   completes.
