@@ -84,7 +84,8 @@ default.
   2. In personal mode, if neither is set: auto-generated on first run into
      `<data dir>/secret.key` with permissions `0600` (on Windows, an owner-only
      ACL). The user is told to back it up.
-* **Format:** `v1:<keyID>:<nonce>:<ciphertext>`. The *associated data* binds each
+* **Format:** `v1:<keyID>:<nonce>:<ciphertext>`, where `keyID` is the first 8 hex
+  characters of the SHA-256 of the key. The *associated data* binds each
   ciphertext to `table:column:rowID`, so ciphertexts cannot be swapped between rows.
 * **Rotation:** `wickframe secrets rotate --new-key-file …` re-encrypts all secrets
   under a new key ID, in a resumable job. The old key stays readable until rotation
