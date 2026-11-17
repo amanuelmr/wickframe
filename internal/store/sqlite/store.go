@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package sqlite is the SQLite store adapter for personal mode (ADR-0004). It
-// implements the domain repository ports with sqlc-generated queries.
+// Package sqlite is the SQLite store adapter for personal mode (ADR-0004,
+// 08-storage §4). It implements the domain repository ports with sqlc-generated
+// queries.
 package sqlite
 
 import (
@@ -18,13 +19,13 @@ import (
 	"github.com/amanuelmr/wickframe/migrations"
 )
 
-// Every connection gets these (ADR-0004). Write transactions start IMMEDIATE,
-// so a transaction that reads before it writes cannot fail with SQLITE_BUSY.
+// Write transactions start IMMEDIATE, so a transaction that reads before it
+// writes cannot fail with SQLITE_BUSY.
 const pragmas = "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)" +
 	"&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_txlock=immediate"
 
 // Store is a SQLite database with one writer connection and a pool of
-// read-only connections (08-storage §4).
+// read-only connections.
 type Store struct {
 	write, read *sql.DB
 	w, r        *db.Queries

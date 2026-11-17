@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// Package postgres is the PostgreSQL store adapter for server mode (ADR-0004).
-// It implements the domain repository ports with sqlc-generated queries on pgx.
+// Package postgres is the PostgreSQL store adapter for server mode (ADR-0004,
+// 08-storage §4). It implements the domain repository ports with
+// sqlc-generated queries on pgx.
 package postgres
 
 import (
@@ -30,7 +31,6 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse postgres dsn: %w", err)
 	}
-	// Defaults from 08-storage §4.
 	cfg.MaxConns = int32(min(4*runtime.GOMAXPROCS(0), 32)) //nolint:gosec // at most 32
 	cfg.ConnConfig.RuntimeParams["statement_timeout"] = "30s"
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
