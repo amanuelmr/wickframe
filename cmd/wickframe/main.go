@@ -4,11 +4,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
+
+	"github.com/amanuelmr/wickframe/internal/app"
+	"github.com/amanuelmr/wickframe/internal/platform/logx"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -36,14 +42,36 @@ func newRootCmd() *cobra.Command {
 				return err
 			},
 		},
-		&cobra.Command{
-			Use:   "serve",
-			Short: "Run the Wickframe server",
-			Args:  cobra.NoArgs,
-			RunE: func(*cobra.Command, []string) error {
-				return errors.New("serve is not implemented yet")
-			},
-		},
+		newServeCmd(),
 	)
 	return root
+}
+
+func newServeCmd() *cobra.Command {
+	var addr string
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Run the Wickframe server",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			log, err := logx.New(cmd.ErrOrStderr(), logx.FormatAuto, slog.LevelInfo)
+			if err != nil {
+				return err //nolint:wrapcheck // already says what failed
+			}
+			ln, err := new(net.ListenConfig).Listen(ctx, "tcp", addr)
+			if err != nil {
+				return fmt.Errorf("listen: %w", err)
+			}
+			log.Info("serving", "url", "http://"+ln.Addr().String())
+			if err := app.Run(ctx, ln, log); err != nil {
+				return err //nolint:wrapcheck // app errors carry their own context
+			}
+			log.Info("stopped")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&addr, "addr", app.DefaultAddr, "address to listen on")
+	return cmd
 }
