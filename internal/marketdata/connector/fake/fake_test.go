@@ -3,6 +3,7 @@
 package fake
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"testing/synctest"
@@ -69,6 +70,36 @@ func TestScenarioPlaysExactlyForASeed(t *testing.T) {
 		}
 		if diff := cmp.Diff(want, r.events); diff != "" {
 			t.Errorf("updates (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestDemoRunsUntilCancelled(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute+time.Second/2)
+		defer cancel()
+		r := &recorder{start: time.Now()}
+
+		err := New(Demo(), clock.System{}).Stream(ctx, []marketdata.StreamSub{btc}, r)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("Stream = %v, want context.DeadlineExceeded", err)
+		}
+
+		if len(r.events) != 180 {
+			t.Fatalf("got %d updates, want 180 in 3 minutes", len(r.events))
+		}
+		var closes []int64
+		for _, e := range r.events {
+			if u := e.U; u.L > min(u.O, u.C) || u.H < max(u.O, u.C) || u.V < 0 {
+				t.Fatalf("update at %v breaks the candle invariants: %+v", e.At, u)
+			}
+			if e.U.Closed {
+				closes = append(closes, e.U.T)
+			}
+		}
+		want := []int64{946_684_800_000, 946_684_860_000, 946_684_920_000}
+		if diff := cmp.Diff(want, closes); diff != "" {
+			t.Errorf("closed bar times (-want +got):\n%s", diff)
 		}
 	})
 }

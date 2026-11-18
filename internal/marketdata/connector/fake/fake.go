@@ -50,6 +50,17 @@ type Scenario struct {
 	Loop  bool
 }
 
+// Demo runs forever, with a forming update every second and a close every
+// minute.
+func Demo() Scenario {
+	steps := make([]Step, 60)
+	for i := range steps {
+		steps[i] = Step{Kind: Tick, Wait: time.Second}
+	}
+	steps[59].Kind = Close
+	return Scenario{Seed: 1, Price: 100, Steps: steps, Loop: true}
+}
+
 var barLength = map[marketdata.Timeframe]time.Duration{
 	marketdata.TF1m:  time.Minute,
 	marketdata.TF3m:  3 * time.Minute,
