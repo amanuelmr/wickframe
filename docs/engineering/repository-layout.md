@@ -91,7 +91,7 @@ wickframe/
 
 | Target | Does |
 |---|---|
-| `make dev` | Backend with live reload + Vite dev server (proxy `/api` to Go) + fake connector |
+| `make dev` | Backend + Vite dev server with hot reload (proxy `/api` to Go) + fake connector; restart it after Go changes |
 | `make check` | Everything CI runs locally: lint, type-check, tests, generate-diff |
 | `make test` / `make test-integration` / `make e2e` | Test tiers |
 | `make migration name=<x>` | Creates the next numbered, empty migration in both `migrations/sqlite` and `migrations/postgres` |
