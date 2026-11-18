@@ -37,7 +37,7 @@ Prerequisites:
 ```bash
 git clone https://github.com/amanuelmr/wickframe.git
 cd wickframe
-make dev      # backend with live reload + frontend dev server + fake market data
+make dev      # backend + frontend dev server + fake market data, at http://localhost:5173
 make check    # everything CI checks, locally
 ```
 

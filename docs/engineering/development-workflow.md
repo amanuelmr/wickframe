@@ -123,8 +123,9 @@ A change is done when:
 The authoritative setup steps live in [CONTRIBUTING.md](../../CONTRIBUTING.md). The
 principles:
 
-- **One command to start:** `make dev` runs the backend with live reload and the
-  frontend dev server, with a SQLite database and the default crypto connector.
+- **One command to start:** `make dev` runs the backend and the frontend dev server
+  with hot reload. Restart it after changing Go code. Until M1 adds storage and real
+  connectors, it serves the fake connector's demo market.
 - **Pinned toolchain:** the Go version comes from `go.mod` (`toolchain`
   directive), Node from `.nvmrc`, pnpm from `packageManager` in `package.json`,
   and Go-based tools via the `tool` directive in `tools/go.mod` (golangci-lint in

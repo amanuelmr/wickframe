@@ -33,6 +33,21 @@ machine or server, using market data you connect yourself.
 
 See the [roadmap](docs/product/roadmap.md) for milestones.
 
+## Quick start
+
+You need Go 1.27, Node.js (the version in `.nvmrc`), pnpm 12 and make. See
+[CONTRIBUTING.md](CONTRIBUTING.md#development-setup) for details.
+
+```bash
+git clone https://github.com/amanuelmr/wickframe.git
+cd wickframe
+make dev
+```
+
+Open <http://localhost:5173> to see a live candle from the built-in fake market.
+`make build` produces a single binary, `bin/wickframe`, with the web UI embedded;
+`bin/wickframe serve` serves it at <http://127.0.0.1:7317>.
+
 ## Documentation
 
 | | |
