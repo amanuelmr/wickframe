@@ -2,10 +2,10 @@
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-.PHONY: dev check test test-integration lint vuln web-check spdx generate migration build
+.PHONY: dev check test test-integration lint vuln web-check spdx generate migration web-build build
 
 dev:
-	go run ./cmd/wickframe serve
+	scripts/dev.sh
 
 check: lint test web-check spdx
 
@@ -35,5 +35,10 @@ generate:
 migration:
 	scripts/new-migration.sh "$(name)"
 
-build:
+web-build:
+	cd web && pnpm install --frozen-lockfile && pnpm build
+	find internal/webui/dist -mindepth 1 ! -name .gitkeep -exec rm -rf {} +
+	cp -R web/dist/. internal/webui/dist/
+
+build: web-build
 	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/wickframe ./cmd/wickframe
