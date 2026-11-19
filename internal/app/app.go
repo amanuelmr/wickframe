@@ -15,6 +15,7 @@ import (
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 	"github.com/amanuelmr/wickframe/internal/marketdata/connector/fake"
 	"github.com/amanuelmr/wickframe/internal/platform/clock"
+	"github.com/amanuelmr/wickframe/internal/platform/logx"
 	"github.com/amanuelmr/wickframe/internal/platform/supervise"
 	"github.com/amanuelmr/wickframe/internal/webui"
 )
@@ -45,7 +46,7 @@ func Run(ctx context.Context, ln net.Listener, log *slog.Logger) error {
 	subs := []marketdata.StreamSub{{Symbol: "DEMO", TF: marketdata.TF1m}}
 	return supervise.New(log, clk,
 		supervise.Child{Name: "connector", Run: func(ctx context.Context) error {
-			return connector.Stream(ctx, subs, publisher{hub, demoID}) //nolint:wrapcheck // the supervisor logs it with the child's name
+			return connector.Stream(ctx, subs, publisher{hub, demoID, log}) //nolint:wrapcheck // the supervisor logs it with the child's name
 		}},
 		supervise.Child{Name: "http", Run: func(ctx context.Context) error {
 			return serveHTTP(ctx, ln, mux, gateway)
@@ -53,13 +54,24 @@ func Run(ctx context.Context, ln net.Listener, log *slog.Logger) error {
 	).Run(ctx)
 }
 
+// publisher validates a connector's updates and publishes the valid ones.
 type publisher struct {
 	hub          *bus.Hub[marketdata.CandleUpdate]
 	instrumentID int32
+	log          *slog.Logger
 }
 
 func (p publisher) Candle(u marketdata.CandleUpdate) {
-	p.hub.Publish(marketdata.CandleTopic(p.instrumentID, u.Sub.TF), u)
+	if err := marketdata.ValidateCandle(u); err != nil {
+		p.log.Warn("dropped an invalid candle update", logx.KeyErr, err, "symbol", u.Sub.Symbol, "tf", u.Sub.TF.String(), "update", u)
+		return
+	}
+	topic := marketdata.CandleTopic(p.instrumentID, u.Sub.TF)
+	if u.Closed {
+		p.hub.Publish(topic, u)
+	} else {
+		p.hub.PublishConflatable(topic, u)
+	}
 }
 
 func serveHTTP(ctx context.Context, ln net.Listener, h http.Handler, gateway *ws.Gateway) error {
