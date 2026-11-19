@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/amanuelmr/wickframe/internal/app"
+	"github.com/amanuelmr/wickframe/internal/config"
 	"github.com/amanuelmr/wickframe/internal/platform/logx"
 )
 
@@ -48,7 +49,7 @@ func newRootCmd() *cobra.Command {
 }
 
 func newServeCmd() *cobra.Command {
-	var addr string
+	var addr, dataDir string
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the Wickframe server",
@@ -60,12 +61,17 @@ func newServeCmd() *cobra.Command {
 			if err != nil {
 				return err //nolint:wrapcheck // already says what failed
 			}
+			if dataDir == "" {
+				if dataDir, err = config.DefaultDataDir(); err != nil {
+					return err
+				}
+			}
 			ln, err := new(net.ListenConfig).Listen(ctx, "tcp", addr)
 			if err != nil {
 				return fmt.Errorf("listen: %w", err)
 			}
-			log.Info("serving", "url", "http://"+ln.Addr().String())
-			if err := app.Run(ctx, ln, log); err != nil {
+			log.Info("serving", "url", "http://"+ln.Addr().String(), "data_dir", dataDir)
+			if err := app.Run(ctx, ln, dataDir, log); err != nil {
 				return err //nolint:wrapcheck // app errors carry their own context
 			}
 			log.Info("stopped")
@@ -73,5 +79,6 @@ func newServeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&addr, "addr", app.DefaultAddr, "address to listen on")
+	cmd.Flags().StringVar(&dataDir, "data-dir", "", "directory for the database (default: the user's data directory)")
 	return cmd
 }

@@ -46,7 +46,9 @@ make dev
 
 Open <http://localhost:5173> to see a live candle from the built-in fake market.
 `make build` produces a single binary, `bin/wickframe`, with the web UI embedded;
-`bin/wickframe serve` serves it at <http://127.0.0.1:7317>.
+`bin/wickframe serve` serves it at <http://127.0.0.1:7317> and keeps closed
+candles in a SQLite database in your user data directory (`--data-dir` to
+change it).
 
 ## Documentation
 
