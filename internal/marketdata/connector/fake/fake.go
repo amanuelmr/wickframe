@@ -61,20 +61,6 @@ func Demo() Scenario {
 	return Scenario{Seed: 1, Price: 100, Steps: steps, Loop: true}
 }
 
-var barLength = map[marketdata.Timeframe]time.Duration{
-	marketdata.TF1m:  time.Minute,
-	marketdata.TF3m:  3 * time.Minute,
-	marketdata.TF5m:  5 * time.Minute,
-	marketdata.TF15m: 15 * time.Minute,
-	marketdata.TF30m: 30 * time.Minute,
-	marketdata.TF1h:  time.Hour,
-	marketdata.TF2h:  2 * time.Hour,
-	marketdata.TF4h:  4 * time.Hour,
-	marketdata.TF6h:  6 * time.Hour,
-	marketdata.TF12h: 12 * time.Hour,
-	marketdata.TF1D:  24 * time.Hour,
-}
-
 type bar struct {
 	t             int64
 	o, h, l, c, v float64
@@ -121,7 +107,7 @@ func (f *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sin
 		if f.series[sub] != nil {
 			continue
 		}
-		d, ok := barLength[sub.TF]
+		d, ok := marketdata.BarLength(sub.TF)
 		if !ok {
 			return fmt.Errorf("fake connector does not stream timeframe %d", sub.TF)
 		}
