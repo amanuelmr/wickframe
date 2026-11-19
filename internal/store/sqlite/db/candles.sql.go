@@ -69,6 +69,26 @@ func (q *Queries) Candles(ctx context.Context, arg CandlesParams) ([]Candle, err
 	return items, nil
 }
 
+const lastCandleT = `-- name: LastCandleT :one
+SELECT t
+FROM candles
+WHERE instrument_id = ?1 AND tf = ?2
+ORDER BY t DESC
+LIMIT 1
+`
+
+type LastCandleTParams struct {
+	InstrumentID int64
+	Tf           int64
+}
+
+func (q *Queries) LastCandleT(ctx context.Context, arg LastCandleTParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, lastCandleT, arg.InstrumentID, arg.Tf)
+	var t int64
+	err := row.Scan(&t)
+	return t, err
+}
+
 const upsertCandle = `-- name: UpsertCandle :exec
 
 INSERT INTO candles (instrument_id, tf, t, o, h, l, c, v, qv, n, rev, derived)

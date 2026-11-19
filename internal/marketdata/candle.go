@@ -54,4 +54,7 @@ type CandleRepository interface {
 	// never undoes a correction.
 	UpsertCandles(ctx context.Context, candles []Candle) error
 	Candles(ctx context.Context, r CandleRange) ([]Candle, error)
+	// LastCandleT returns the open time of the series' newest candle, or 0 if
+	// there is none.
+	LastCandleT(ctx context.Context, instrumentID int32, tf Timeframe) (int64, error)
 }

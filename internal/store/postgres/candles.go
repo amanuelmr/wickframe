@@ -4,6 +4,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -75,4 +76,16 @@ func (s *Store) Candles(ctx context.Context, r marketdata.CandleRange) ([]market
 		}
 	}
 	return out, nil
+}
+
+// LastCandleT implements marketdata.CandleRepository.
+func (s *Store) LastCandleT(ctx context.Context, instrumentID int32, tf marketdata.Timeframe) (int64, error) {
+	t, err := s.q.LastCandleT(ctx, db.LastCandleTParams{InstrumentID: instrumentID, Tf: int16(tf)})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("last candle %d/%d: %w", instrumentID, tf, err)
+	}
+	return t, nil
 }
