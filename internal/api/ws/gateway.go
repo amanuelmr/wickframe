@@ -5,6 +5,7 @@ package ws
 import (
 	"context"
 	"encoding/json/v2"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -113,6 +114,9 @@ func (g *Gateway) serve(ctx context.Context, c *websocket.Conn) {
 			defer s.Close()
 			for seq := int64(1); ; seq++ {
 				u, err := s.Next(conn)
+				if errors.Is(err, bus.ErrLagging) {
+					_ = c.Close(websocket.StatusTryAgainLater, "client fell behind")
+				}
 				if err != nil || send(conn, c, newCandle(m.Sub, seq, u)) != nil {
 					return
 				}
