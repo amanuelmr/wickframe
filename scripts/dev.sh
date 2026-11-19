@@ -6,6 +6,9 @@
 set -euo pipefail
 
 (cd web && pnpm install --frozen-lockfile)
-go run ./cmd/wickframe serve &
-trap 'kill $! 2>/dev/null' EXIT
+# A built binary, not go run, so the trap stops the server itself.
+go build -o bin/wickframe ./cmd/wickframe
+bin/wickframe serve &
+server=$!
+trap 'kill $server 2>/dev/null' EXIT
 cd web && pnpm dev
