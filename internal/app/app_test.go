@@ -3,18 +3,23 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/v2"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 
 	"github.com/amanuelmr/wickframe/internal/api/ws"
+	"github.com/amanuelmr/wickframe/internal/bus"
+	"github.com/amanuelmr/wickframe/internal/marketdata"
 )
 
 func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
@@ -77,5 +82,35 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return within 5 s of cancellation")
+	}
+}
+
+func TestPublisherDropsInvalidUpdatesWithAWarning(t *testing.T) {
+	hub := bus.New[marketdata.CandleUpdate]()
+	s := hub.Subscribe(marketdata.CandleTopic(demoID, marketdata.TF1m))
+	defer s.Close()
+	var logs bytes.Buffer
+	p := publisher{hub, demoID, slog.New(slog.NewTextHandler(&logs, nil))}
+	sub := marketdata.StreamSub{Symbol: "DEMO", TF: marketdata.TF1m}
+
+	p.Candle(marketdata.CandleUpdate{Sub: sub, T: 0, O: 1, H: 2, L: 1, C: 2, Closed: true})
+	p.Candle(marketdata.CandleUpdate{Sub: sub, T: 60_000, O: 2, H: 1, L: 1, C: 2}) // high below open
+	p.Candle(marketdata.CandleUpdate{Sub: sub, T: 60_000, O: 2, H: 3, L: 2, C: 3})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	var got []int64
+	for {
+		u, err := s.Next(ctx)
+		if err != nil {
+			break
+		}
+		got = append(got, u.T)
+	}
+	if want := []int64{0, 60_000}; !slices.Equal(got, want) {
+		t.Errorf("published bar times %v, want %v", got, want)
+	}
+	if !strings.Contains(logs.String(), "level=WARN msg=\"dropped an invalid candle update\" err=\"high and low do not contain open and close\"") {
+		t.Errorf("missing the warning for the invalid update, logs:\n%s", logs.String())
 	}
 }
