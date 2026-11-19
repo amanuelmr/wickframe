@@ -32,7 +32,7 @@ Prerequisites:
 | Node.js | version in `.nvmrc` (install it with fnm, nvm or your package manager) |
 | pnpm | `npm install -g pnpm@12`; pnpm then switches to the version in `web/package.json` `packageManager` |
 | Docker | optional, for PostgreSQL integration tests |
-| make | any recent |
+| make | any recent; on Windows, run `make` and the scripts from Git Bash or WSL |
 
 ```bash
 git clone https://github.com/amanuelmr/wickframe.git
