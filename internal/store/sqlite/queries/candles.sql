@@ -18,3 +18,10 @@ WHERE instrument_id = sqlc.arg(instrument_id) AND tf = sqlc.arg(tf)
     AND t >= sqlc.arg(from_t) AND t < sqlc.arg(to_t)
 ORDER BY t
 LIMIT sqlc.arg(row_limit);
+
+-- name: LastCandleT :one
+SELECT t
+FROM candles
+WHERE instrument_id = sqlc.arg(instrument_id) AND tf = sqlc.arg(tf)
+ORDER BY t DESC
+LIMIT 1;

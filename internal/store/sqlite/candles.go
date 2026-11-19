@@ -5,6 +5,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/amanuelmr/wickframe/internal/marketdata"
@@ -88,4 +89,16 @@ func (s *Store) Candles(ctx context.Context, r marketdata.CandleRange) ([]market
 		out[i] = c
 	}
 	return out, nil
+}
+
+// LastCandleT implements marketdata.CandleRepository.
+func (s *Store) LastCandleT(ctx context.Context, instrumentID int32, tf marketdata.Timeframe) (int64, error) {
+	t, err := s.r.LastCandleT(ctx, db.LastCandleTParams{InstrumentID: int64(instrumentID), Tf: int64(tf)})
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("last candle %d/%d: %w", instrumentID, tf, err)
+	}
+	return t, nil
 }

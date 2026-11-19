@@ -103,6 +103,28 @@ func TestCandles(t *testing.T, newRepo func(t *testing.T) marketdata.CandleRepos
 		check(t, read(t, repo, all), []marketdata.Candle{again})
 	})
 
+	t.Run("reports the newest open time of a series", func(t *testing.T) {
+		repo := newRepo(t)
+		last := func() int64 {
+			t.Helper()
+			got, err := repo.LastCandleT(t.Context(), 42, marketdata.TF1h)
+			if err != nil {
+				t.Fatalf("LastCandleT: %v", err)
+			}
+			return got
+		}
+		if got := last(); got != 0 {
+			t.Errorf("LastCandleT of an empty series = %d, want 0", got)
+		}
+		other, daily := bar(9), bar(9)
+		other.InstrumentID = 7
+		daily.TF = marketdata.TF1D
+		upsert(t, repo, bar(2), bar(5), bar(1), other, daily)
+		if got, want := last(), bar(5).T; got != want {
+			t.Errorf("LastCandleT = %d, want %d", got, want)
+		}
+	})
+
 	t.Run("accepts an empty batch and returns nothing for an empty range", func(t *testing.T) {
 		repo := newRepo(t)
 		upsert(t, repo)
