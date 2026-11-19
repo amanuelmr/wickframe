@@ -55,7 +55,8 @@ database:
     path: ""                # default: <dataDir>/wickframe.db
   postgres:
     dsn: ""                 # or WICKFRAME_DATABASE_POSTGRES_DSN_FILE
-dataDir: ""                 # default per OS (XDG / Application Support / %AppData%)
+dataDir: ""                 # default per OS: $XDG_DATA_HOME/wickframe (~/.local/share/wickframe),
+                            # ~/Library/Application Support/Wickframe, %LocalAppData%\Wickframe
 security:
   secretKeyFile: ""         # required in server mode (ADR §11.5)
 auth:

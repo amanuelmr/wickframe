@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/amanuelmr/wickframe/internal/api/ws"
 	"github.com/amanuelmr/wickframe/internal/bus"
 	"github.com/amanuelmr/wickframe/internal/marketdata"
+	"github.com/amanuelmr/wickframe/internal/store/sqlite"
 )
 
 func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
@@ -27,9 +29,10 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	dataDir := t.TempDir()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- Run(ctx, ln, slog.New(slog.DiscardHandler)) }()
+	go func() { done <- Run(ctx, ln, dataDir, slog.New(slog.DiscardHandler)) }()
 	addr := ln.Addr().String()
 
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, "http://"+addr+"/", nil)
@@ -83,6 +86,20 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Run did not return within 5 s of cancellation")
 	}
+}
+
+// openStore opens and migrates the database in dataDir like Run does.
+func openStore(t *testing.T, dataDir string) *sqlite.Store {
+	t.Helper()
+	store, err := sqlite.Open(t.Context(), filepath.Join(dataDir, "wickframe.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Migrate(t.Context()); err != nil {
+		_ = store.Close()
+		t.Fatal(err)
+	}
+	return store
 }
 
 func TestPublisherDropsInvalidUpdatesWithAWarning(t *testing.T) {

@@ -4,10 +4,13 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/amanuelmr/wickframe/internal/api/ws"
@@ -17,6 +20,7 @@ import (
 	"github.com/amanuelmr/wickframe/internal/platform/clock"
 	"github.com/amanuelmr/wickframe/internal/platform/logx"
 	"github.com/amanuelmr/wickframe/internal/platform/supervise"
+	"github.com/amanuelmr/wickframe/internal/store/sqlite"
 	"github.com/amanuelmr/wickframe/internal/webui"
 )
 
@@ -32,10 +36,24 @@ const (
 const shutdownTimeout = 30 * time.Second
 
 // Run serves the web UI and the WebSocket API on ln until ctx is done, with
-// live candles from the fake connector's demo market.
-func Run(ctx context.Context, ln net.Listener, log *slog.Logger) error {
+// live candles from the fake connector's demo market. Closed candles are stored
+// in a SQLite database in dataDir.
+func Run(ctx context.Context, ln net.Listener, dataDir string, log *slog.Logger) (err error) {
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return fmt.Errorf("create data directory: %w", err)
+	}
+	store, err := sqlite.Open(ctx, filepath.Join(dataDir, "wickframe.db"))
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, store.Close()) }()
+	if err := store.Migrate(ctx); err != nil {
+		return err
+	}
+
 	clk := clock.System{}
 	hub := bus.New[marketdata.CandleUpdate]()
+	persister := marketdata.NewPersister(store, hub, demoID, marketdata.TF1m)
 	connector := fake.New(fake.Demo(), clk)
 	gateway := ws.New(hub, map[string]int32{demoKey: demoID})
 
@@ -45,6 +63,7 @@ func Run(ctx context.Context, ln net.Listener, log *slog.Logger) error {
 
 	subs := []marketdata.StreamSub{{Symbol: "DEMO", TF: marketdata.TF1m}}
 	return supervise.New(log, clk,
+		supervise.Child{Name: "persister", Run: persister.Run},
 		supervise.Child{Name: "connector", Run: func(ctx context.Context) error {
 			return connector.Stream(ctx, subs, publisher{hub, demoID, log}) //nolint:wrapcheck // the supervisor logs it with the child's name
 		}},
