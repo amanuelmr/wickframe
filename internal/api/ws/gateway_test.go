@@ -4,6 +4,7 @@ package ws
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +23,7 @@ var demo = marketdata.CandleTopic(1, marketdata.TF1m)
 func start(t *testing.T) (hub *bus.Hub[marketdata.CandleUpdate], url string, stop func()) {
 	t.Helper()
 	hub = bus.New[marketdata.CandleUpdate]()
-	g := New(hub, map[string]int32{"fake:DEMO": 1})
+	g := New(hub, map[string]int32{"fake:DEMO": 1, "fake:BROKEN": 2}, lastClosedT)
 	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	srv := httptest.NewUnstartedServer(g)
 	srv.Config.BaseContext = func(net.Listener) context.Context { return ctx }
@@ -33,6 +34,15 @@ func start(t *testing.T) (hub *bus.Hub[marketdata.CandleUpdate], url string, sto
 		g.Wait()
 	})
 	return hub, "ws" + strings.TrimPrefix(srv.URL, "http"), cancel
+}
+
+// lastClosedT is a store holding the demo series up to 2 minutes, which fails
+// for any other series.
+func lastClosedT(_ context.Context, id int32, tf marketdata.Timeframe) (int64, error) {
+	if id != 1 || tf != marketdata.TF1m {
+		return 0, errors.New("disk I/O error")
+	}
+	return 120_000, nil
 }
 
 func dial(t *testing.T, url string, protocols ...string) *websocket.Conn {
@@ -69,7 +79,7 @@ func TestSubscribeRepliesThenStreamsCandles(t *testing.T) {
 	c := dial(t, url, Protocol)
 
 	write(t, c, `{"type":"subscribe","id":"r1","sub":"c1","channel":"candles","instrument":"fake:DEMO","tf":"1m"}`)
-	expect(t, c, `{"type":"subscribed","sub":"c1","seq":0,"lastClosedT":0}`)
+	expect(t, c, `{"type":"subscribed","sub":"c1","seq":0,"lastClosedT":120000}`)
 	expect(t, c, `{"type":"candle","sub":"c1","seq":1,"t":60000,"o":1,"h":3,"l":0.5,"c":2,"v":0,"state":"forming","rev":0}`)
 
 	hub.Publish(demo, marketdata.CandleUpdate{T: 60_000, O: 1, H: 3, L: 0.5, C: 2.5, V: 7, Closed: true, Rev: 1})
@@ -106,12 +116,23 @@ func TestShutdownClosesWith1001(t *testing.T) {
 	_, url, stop := start(t)
 	c := dial(t, url, Protocol)
 	write(t, c, `{"type":"subscribe","sub":"c1","channel":"candles","instrument":"fake:DEMO","tf":"1m"}`)
-	expect(t, c, `{"type":"subscribed","sub":"c1","seq":0,"lastClosedT":0}`)
+	expect(t, c, `{"type":"subscribed","sub":"c1","seq":0,"lastClosedT":120000}`)
 
 	stop()
 	_, _, err := c.Read(t.Context())
 	if got := websocket.CloseStatus(err); got != websocket.StatusGoingAway {
 		t.Fatalf("close status = %v (%v), want 1001", got, err)
+	}
+}
+
+func TestStoreFailureClosesWith1011(t *testing.T) {
+	_, url, _ := start(t)
+	c := dial(t, url, Protocol)
+	write(t, c, `{"type":"subscribe","sub":"c1","channel":"candles","instrument":"fake:BROKEN","tf":"1m"}`)
+
+	_, _, err := c.Read(t.Context())
+	if got := websocket.CloseStatus(err); got != websocket.StatusInternalError {
+		t.Fatalf("close status = %v (%v), want 1011", got, err)
 	}
 }
 

@@ -29,13 +29,19 @@ const (
 type Gateway struct {
 	hub         *bus.Hub[marketdata.CandleUpdate]
 	instruments map[string]int32
+	lastClosedT func(context.Context, int32, marketdata.Timeframe) (int64, error)
 	conns       sync.WaitGroup
 }
 
 // New returns a Gateway that resolves instrument keys such as "fake:DEMO" to
-// instrument IDs with instruments.
-func New(hub *bus.Hub[marketdata.CandleUpdate], instruments map[string]int32) *Gateway {
-	return &Gateway{hub: hub, instruments: instruments}
+// instrument IDs with instruments, and reads the open time of a series' newest
+// stored candle with lastClosedT.
+func New(
+	hub *bus.Hub[marketdata.CandleUpdate],
+	instruments map[string]int32,
+	lastClosedT func(ctx context.Context, instrumentID int32, tf marketdata.Timeframe) (int64, error),
+) *Gateway {
+	return &Gateway{hub: hub, instruments: instruments, lastClosedT: lastClosedT}
 }
 
 // ServeHTTP upgrades the request and serves the connection until the client
@@ -105,8 +111,16 @@ func (g *Gateway) serve(ctx context.Context, c *websocket.Conn) {
 			continue
 		}
 
+		// Subscribed before reading the store, so a bar that closes in between
+		// still reaches the client.
 		s := g.hub.Subscribe(marketdata.CandleTopic(id, tf))
-		if send(conn, c, subscribed{"subscribed", m.Sub, 0, 0}) != nil {
+		last, err := g.lastClosedT(conn, id, tf)
+		if err != nil {
+			s.Close()
+			_ = c.Close(websocket.StatusInternalError, "could not read stored candles")
+			return
+		}
+		if send(conn, c, subscribed{"subscribed", m.Sub, 0, last}) != nil {
 			s.Close()
 			return
 		}

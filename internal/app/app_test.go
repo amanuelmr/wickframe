@@ -30,6 +30,13 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := t.TempDir()
+	const storedT = 1_767_225_600_000 // left by an earlier run
+	store := openStore(t, dataDir)
+	if err := store.UpsertCandles(t.Context(), []marketdata.Candle{{InstrumentID: demoID, TF: marketdata.TF1m, T: storedT, O: 1, H: 1, L: 1, C: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	_ = store.Close()
+
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() { done <- Run(ctx, ln, dataDir, slog.New(slog.DiscardHandler)) }()
@@ -57,10 +64,11 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 	}
 	for _, want := range []string{"subscribed", "candle"} {
 		var got struct {
-			Type  string `json:"type"`
-			Sub   string `json:"sub"`
-			Seq   int64  `json:"seq"`
-			State string `json:"state"`
+			Type        string `json:"type"`
+			Sub         string `json:"sub"`
+			Seq         int64  `json:"seq"`
+			State       string `json:"state"`
+			LastClosedT int64  `json:"lastClosedT"`
 		}
 		_, data, err := c.Read(t.Context())
 		if err != nil {
@@ -68,6 +76,9 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 		}
 		if err := json.Unmarshal(data, &got); err != nil || got.Type != want || got.Sub != "c1" {
 			t.Fatalf("got %s, want a %s message for c1", data, want)
+		}
+		if want == "subscribed" && got.LastClosedT != storedT {
+			t.Fatalf("got %s, want lastClosedT %d from the store", data, storedT)
 		}
 		if want == "candle" && (got.Seq != 1 || got.State != "forming") {
 			t.Fatalf("got %s, want the first forming update", data)

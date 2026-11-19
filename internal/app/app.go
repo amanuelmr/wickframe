@@ -55,7 +55,7 @@ func Run(ctx context.Context, ln net.Listener, dataDir string, log *slog.Logger)
 	hub := bus.New[marketdata.CandleUpdate]()
 	persister := marketdata.NewPersister(store, hub, demoID, marketdata.TF1m)
 	connector := fake.New(fake.Demo(), clk)
-	gateway := ws.New(hub, map[string]int32{demoKey: demoID})
+	gateway := ws.New(hub, map[string]int32{demoKey: demoID}, store.LastCandleT)
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /api/v1/ws", gateway)
