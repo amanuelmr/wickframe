@@ -38,8 +38,8 @@ type Candle struct {
 	Derived      bool
 }
 
-// CandleRange selects candles of one instrument and timeframe with
-// From <= T < To, oldest first, at most Limit of them.
+// CandleRange selects the newest Limit candles of one instrument and timeframe
+// with From <= T < To.
 type CandleRange struct {
 	InstrumentID int32
 	TF           Timeframe
