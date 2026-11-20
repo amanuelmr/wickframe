@@ -54,6 +54,16 @@ jobs:
       - run: go -C tools/lint mod tidy -diff
       - run: go tool -modfile=tools/lint/go.mod golangci-lint run ./...
       - run: go tool -modfile=tools/go.mod govulncheck ./...
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
       - name: Generated code and api/openapi.yaml are up to date
         run: |
           make generate

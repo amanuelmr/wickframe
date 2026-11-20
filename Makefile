@@ -32,6 +32,7 @@ generate:
 	go tool -modfile=tools/go.mod sqlc generate -f internal/store/sqlite/sqlc.yaml
 	go tool -modfile=tools/go.mod sqlc generate -f internal/store/postgres/sqlc.yaml
 	go run ./cmd/wickframe openapi > api/openapi.yaml
+	cd web && pnpm generate
 
 migration:
 	scripts/new-migration.sh "$(name)"
