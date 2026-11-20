@@ -44,6 +44,19 @@ func newRootCmd() *cobra.Command {
 			},
 		},
 		newServeCmd(),
+		&cobra.Command{
+			Use:   "openapi",
+			Short: "Print the HTTP API's OpenAPI document as YAML",
+			Args:  cobra.NoArgs,
+			RunE: func(cmd *cobra.Command, _ []string) error {
+				doc, err := app.OpenAPI()
+				if err != nil {
+					return err
+				}
+				_, err = cmd.OutOrStdout().Write(doc)
+				return err
+			},
+		},
 	)
 	return root
 }

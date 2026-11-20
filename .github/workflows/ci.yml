@@ -54,7 +54,7 @@ jobs:
       - run: go -C tools/lint mod tidy -diff
       - run: go tool -modfile=tools/lint/go.mod golangci-lint run ./...
       - run: go tool -modfile=tools/go.mod govulncheck ./...
-      - name: Generated code is up to date
+      - name: Generated code and api/openapi.yaml are up to date
         run: |
           make generate
           if [ -n "$(git status --porcelain)" ]; then
