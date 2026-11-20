@@ -9,6 +9,10 @@ export default defineConfig({
       target: './src/api/generated/wickframe.ts',
       client: 'react-query',
       httpClient: 'fetch',
+      override: {
+        mutator: { path: './src/api/fetch.ts', name: 'apiFetch' },
+        fetch: { includeHttpResponseReturnType: false },
+      },
     },
   },
 });
