@@ -32,7 +32,7 @@ Guidelines) adapted to Wickframe.
 | System | `GET /system/info` (version, mode, features) · `GET /system/status` (sources, jobs) |
 | Data sources | `GET/POST /sources` · `GET/PATCH/DELETE /sources/{id}` · `POST /sources/{id}:test` · `GET /connectors` (available connector types and settings schemas) |
 | Instruments | `GET /instruments?query=&source=&kind=&pageToken=` · `GET /instruments/{key}` |
-| Candles | `GET /candles?instrument=&tf=&from=&to=&limit=` (max 5,000 per request; returns `bars`, `nextTo` for paging backwards, `historyComplete`) |
+| Candles | `GET /candles?instrument=&tf=&from=&to=&limit=` (`from` and `to` inclusive; the newest `limit` bars of the range, max 5,000, default 2,000; returns `bars` oldest first, `nextTo` for paging backwards, `historyComplete`) |
 | Indicators | `GET /indicators` · `GET /indicators/{id}/series?…` · `POST /indicators:batchSeries` |
 | Layouts | `GET/POST /layouts` · `GET/PUT/PATCH/DELETE /layouts/{id}` |
 | Drawings | `GET /layouts/{id}/drawings` · `POST /drawings` · `PATCH/DELETE /drawings/{id}` · `POST /drawings:batchUpdate` |
@@ -76,6 +76,15 @@ All errors use `application/problem+json`:
 | 429 | Rate limited (with `Retry-After`) |
 | 500 | Unexpected error (no internals leaked; correlated via `requestId`) |
 | 502 / 503 / 504 | Upstream data-source failure, overload or timeout (`type` says which source failed, without exposing credentials) |
+
+| `type` | Status |
+|---|---|
+| `urn:wickframe:problem:bad-request` | 400 |
+| `urn:wickframe:problem:not-found` | 404 |
+| `urn:wickframe:problem:validation-error` | 422 |
+| `urn:wickframe:problem:internal-error` | 500 |
+
+Other statuses use `about:blank` until they get a type of their own.
 
 The problem `type` values are stable, documented identifiers. Clients branch on
 `type`, never on `title` or `detail`. They are URNs (`urn:wickframe:problem:<name>`)
