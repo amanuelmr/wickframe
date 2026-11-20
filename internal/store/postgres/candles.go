@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 
@@ -75,6 +76,7 @@ func (s *Store) Candles(ctx context.Context, r marketdata.CandleRange) ([]market
 			Derived:      row.Derived,
 		}
 	}
+	slices.Reverse(out) // read newest first, so the limit keeps the newest
 	return out, nil
 }
 

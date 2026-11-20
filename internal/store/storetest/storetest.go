@@ -69,12 +69,12 @@ func TestCandles(t *testing.T, newRepo func(t *testing.T) marketdata.CandleRepos
 		check(t, read(t, repo, r), []marketdata.Candle{bar(1), bar(2), bar(3)})
 	})
 
-	t.Run("stops at the limit", func(t *testing.T) {
+	t.Run("keeps the newest candles at the limit", func(t *testing.T) {
 		repo := newRepo(t)
 		upsert(t, repo, bar(0), bar(1), bar(2), bar(3))
 		r := all
 		r.Limit = 2
-		check(t, read(t, repo, r), []marketdata.Candle{bar(0), bar(1)})
+		check(t, read(t, repo, r), []marketdata.Candle{bar(2), bar(3)})
 	})
 
 	t.Run("keeps instruments and timeframes apart", func(t *testing.T) {

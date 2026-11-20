@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 	"github.com/amanuelmr/wickframe/internal/store/sqlite/db"
@@ -88,6 +89,7 @@ func (s *Store) Candles(ctx context.Context, r marketdata.CandleRange) ([]market
 		}
 		out[i] = c
 	}
+	slices.Reverse(out) // read newest first, so the limit keeps the newest
 	return out, nil
 }
 

@@ -15,7 +15,7 @@ SELECT instrument_id, tf, t, o, h, l, c, v, qv, n, rev, derived
 FROM candles
 WHERE instrument_id = ?1 AND tf = ?2
     AND t >= ?3 AND t < ?4
-ORDER BY t
+ORDER BY t DESC
 LIMIT ?5
 `
 
