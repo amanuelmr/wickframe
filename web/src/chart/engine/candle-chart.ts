@@ -11,22 +11,27 @@ export interface Bar {
 }
 
 export interface CandleChart {
+  /** Replaces every bar. */
+  setData(bars: Bar[]): void;
+  /** Updates the last bar or appends a newer one. */
   update(bar: Bar): void;
   destroy(): void;
 }
+
+const toLW = (b: Bar) => ({
+  time: (b.t / 1000) as UTCTimestamp,
+  open: b.o,
+  high: b.h,
+  low: b.l,
+  close: b.c,
+});
 
 export function createCandleChart(el: HTMLElement): CandleChart {
   const chart = createChart(el, { autoSize: true, timeScale: { timeVisible: true } });
   const series = chart.addSeries(CandlestickSeries);
   return {
-    update: (b) =>
-      series.update({
-        time: (b.t / 1000) as UTCTimestamp,
-        open: b.o,
-        high: b.h,
-        low: b.l,
-        close: b.c,
-      }),
+    setData: (bars) => series.setData(bars.map(toLW)),
+    update: (b) => series.update(toLW(b)),
     destroy: () => chart.remove(),
   };
 }

@@ -13,21 +13,96 @@ export interface Candle {
   rev: number;
 }
 
-/** Streams candle updates for one instrument and timeframe until the returned function is called. */
-export function subscribeCandles(
-  url: string,
-  instrument: string,
-  tf: string,
-  onCandle: (c: Candle) => void,
-): () => void {
-  const ws = new WebSocket(url, PROTOCOL);
-  ws.onopen = () =>
-    ws.send(JSON.stringify({ type: 'subscribe', sub: 'c1', channel: 'candles', instrument, tf }));
-  ws.onmessage = (e: MessageEvent<string>) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === 'candle') onCandle(msg);
+/**
+ * Joins history with live updates: updates are held until the history has
+ * loaded, then only those at or after its last bar are applied.
+ */
+export class Stitcher {
+  private held: Candle[] | null = [];
+  private lastT = Number.NEGATIVE_INFINITY;
+
+  constructor(private readonly apply: (c: Candle) => void) {}
+
+  live(c: Candle): void {
+    if (this.held) this.held.push(c);
+    else if (c.t >= this.lastT) this.apply(c);
+  }
+
+  /** Marks the history, whose newest bar opens at lastT, as loaded. */
+  loaded(lastT: number | undefined): void {
+    const held = this.held ?? [];
+    this.held = null;
+    if (lastT !== undefined) this.lastT = lastT;
+    for (const c of held) this.live(c);
+  }
+}
+
+export interface StreamOptions {
+  url: string;
+  instrument: string;
+  tf: string;
+  /** Loads and shows the closed bars up to lastClosedT, after every subscribe. */
+  loadHistory(lastClosedT: number, signal: AbortSignal): Promise<{ t: number }[]>;
+  onCandle(c: Candle): void;
+}
+
+const backoff = { base: 500, max: 30_000 };
+
+/**
+ * Streams one series until the returned function is called, reconnecting with
+ * backoff when the connection drops.
+ */
+export function streamCandles(opts: StreamOptions): () => void {
+  let stopped = false;
+  let failures = 0;
+  let ws: WebSocket;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+
+  const connect = () => {
+    const sock = new WebSocket(opts.url, PROTOCOL);
+    ws = sock;
+    const history = new AbortController();
+    let stitch: Stitcher | undefined;
+    sock.onopen = () =>
+      sock.send(
+        JSON.stringify({
+          type: 'subscribe',
+          sub: 'c1',
+          channel: 'candles',
+          instrument: opts.instrument,
+          tf: opts.tf,
+        }),
+      );
+    sock.onmessage = (e: MessageEvent<string>) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'subscribed') {
+        failures = 0;
+        const s = new Stitcher(opts.onCandle);
+        stitch = s;
+        opts.loadHistory(msg.lastClosedT, history.signal).then(
+          (bars) => s.loaded(bars.at(-1)?.t),
+          () => sock.close(4000, 'history failed'),
+        );
+      } else if (msg.type === 'candle') {
+        stitch?.live(msg);
+      }
+    };
+    sock.onclose = (e: CloseEvent) => {
+      history.abort();
+      // 1008 needs the user to sign in again, which a retry cannot do.
+      if (stopped || e.code === 1008) return;
+      const delay = Math.random() * Math.min(backoff.max, backoff.base * 2 ** failures);
+      failures++;
+      retry = setTimeout(connect, delay);
+    };
   };
-  return () => ws.close(1000);
+  connect();
+
+  return () => {
+    stopped = true;
+    clearTimeout(retry);
+    ws.close(1000);
+  };
 }
 
 export function wsURL(loc: Location = window.location): string {
