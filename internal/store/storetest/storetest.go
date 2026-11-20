@@ -14,18 +14,25 @@ import (
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 )
 
+// Bar returns the i-th hourly test candle of instrument 42, starting at
+// 2026-01-01T00:00:00Z.
+func Bar(i int64) marketdata.Candle {
+	return marketdata.Candle{
+		InstrumentID: 42, TF: marketdata.TF1h, T: T0 + i*3_600_000,
+		O: 100, H: 110, L: 90, C: 105, V: 1.5,
+	}
+}
+
+// T0 is the open time of Bar(0).
+const T0 = int64(1_767_225_600_000)
+
 // TestCandles runs the CandleRepository contract. newRepo must return an empty,
 // migrated store each time it is called.
 func TestCandles(t *testing.T, newRepo func(t *testing.T) marketdata.CandleRepository) {
 	const hour = int64(3_600_000)
-	t0 := int64(1_767_225_600_000) // 2026-01-01T00:00:00Z
+	t0 := T0
 	qv, n := 12_345.678, int32(987)
-	bar := func(i int64) marketdata.Candle {
-		return marketdata.Candle{
-			InstrumentID: 42, TF: marketdata.TF1h, T: t0 + i*hour,
-			O: 100, H: 110, L: 90, C: 105, V: 1.5,
-		}
-	}
+	bar := Bar
 	all := marketdata.CandleRange{InstrumentID: 42, TF: marketdata.TF1h, From: t0, To: t0 + 100*hour, Limit: 1000}
 
 	upsert := func(t *testing.T, repo marketdata.CandleRepository, cs ...marketdata.Candle) {
