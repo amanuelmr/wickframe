@@ -6,6 +6,7 @@ toolchain go1.27.4
 
 require (
 	github.com/coder/websocket v1.8.15
+	github.com/danielgtaylor/huma/v2 v2.40.0
 	github.com/google/go-cmp v0.7.0
 	github.com/jackc/pgx/v5 v5.13.0
 	github.com/pressly/goose/v3 v3.30.1
@@ -63,7 +64,7 @@ require (
 	github.com/sethvargo/go-retry v0.5.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/amanuelmr/wickframe/internal/api/httpapi"
 	"github.com/amanuelmr/wickframe/internal/api/ws"
 	"github.com/amanuelmr/wickframe/internal/bus"
 	"github.com/amanuelmr/wickframe/internal/marketdata"
@@ -55,9 +56,11 @@ func Run(ctx context.Context, ln net.Listener, dataDir string, log *slog.Logger)
 	hub := bus.New[marketdata.CandleUpdate]()
 	persister := marketdata.NewPersister(store, hub, demoID, marketdata.TF1m)
 	connector := fake.New(fake.Demo(), clk)
-	gateway := ws.New(hub, map[string]int32{demoKey: demoID}, store.LastCandleT)
+	instruments := map[string]int32{demoKey: demoID}
+	gateway := ws.New(hub, instruments, store.LastCandleT)
 
 	mux := http.NewServeMux()
+	httpapi.New(mux, store, instruments, log)
 	mux.Handle("GET /api/v1/ws", gateway)
 	mux.Handle("GET /", webui.Handler())
 

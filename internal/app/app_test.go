@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -83,6 +84,18 @@ func TestServeStreamsDemoCandlesAndShutsDown(t *testing.T) {
 		if want == "candle" && (got.Seq != 1 || got.State != "forming") {
 			t.Fatalf("got %s, want the first forming update", data)
 		}
+	}
+
+	history := fmt.Sprintf("http://%s/api/v1/candles?instrument=fake:DEMO&tf=1m&to=%d", addr, int64(storedT))
+	req, _ = http.NewRequestWithContext(t.Context(), http.MethodGet, history, nil)
+	res, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET history: %v", err)
+	}
+	body, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	if want := `{"bars":[{"t":1767225600000,"o":1,"h":1,"l":1,"c":1,"v":0,"rev":0}],"historyComplete":true}`; res.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != want {
+		t.Fatalf("GET history = %d %s, want %s", res.StatusCode, body, want)
 	}
 
 	cancel()
