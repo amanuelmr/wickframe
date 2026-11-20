@@ -5,7 +5,7 @@
 set -euo pipefail
 
 files=$(git ls-files -- '*.go' '*.ts' '*.tsx' '*.css' 'Makefile' '*/Makefile' '*.yml' '*.yaml' \
-  ':!:*pnpm-lock.yaml' ':!:*.gen.ts' ':!:web/src/api/generated/**' ':!:internal/store/*/db/**')
+  ':!:*pnpm-lock.yaml' ':!:api/openapi.yaml' ':!:*.gen.ts' ':!:web/src/api/generated/**' ':!:internal/store/*/db/**')
 status=0
 for f in $files; do
   if ! head -n 3 "$f" | grep -q 'SPDX-License-Identifier:'; then

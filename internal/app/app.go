@@ -118,3 +118,12 @@ func serveHTTP(ctx context.Context, ln net.Listener, h http.Handler, gateway *ws
 	}
 	return nil
 }
+
+// OpenAPI returns the HTTP API's OpenAPI document as YAML.
+func OpenAPI() ([]byte, error) {
+	doc, err := httpapi.New(http.NewServeMux(), nil, nil, nil).OpenAPI().YAML()
+	if err != nil {
+		return nil, fmt.Errorf("openapi: %w", err)
+	}
+	return doc, nil
+}
