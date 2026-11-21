@@ -157,6 +157,20 @@ describe('streamCandles', () => {
     expect(got).toEqual([expect.objectContaining(bar(120_000, 'forming'))]);
   });
 
+  test('logs and skips a malformed message', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const ws = FakeSocket.all[0] as FakeSocket;
+    subscribe(ws, 60_000);
+    ws.onmessage?.({ data: '{"type":"candle",' });
+    ws.onmessage?.({ data: 'null' });
+    history[0]?.resolve(shown([60_000, 0]));
+    ws.receive(candle(bar(120_000, 'forming')));
+    await vi.runAllTimersAsync();
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(got).toEqual([expect.objectContaining(bar(120_000, 'forming'))]);
+  });
+
   test.each([1013, 1011, 1006])(
     'reconnects after close code %i and reloads history',
     async (code) => {
