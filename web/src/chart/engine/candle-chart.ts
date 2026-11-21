@@ -13,8 +13,8 @@ export interface Bar {
 export interface CandleChart {
   /** Replaces every bar. */
   setData(bars: Bar[]): void;
-  /** Updates the last bar or appends a newer one. */
-  update(bar: Bar): void;
+  /** Updates the last bar or appends a newer one; historical updates an older bar. */
+  update(bar: Bar, historical?: boolean): void;
   destroy(): void;
 }
 
@@ -31,7 +31,7 @@ export function createCandleChart(el: HTMLElement): CandleChart {
   const series = chart.addSeries(CandlestickSeries);
   return {
     setData: (bars) => series.setData(bars.map(toLW)),
-    update: (b) => series.update(toLW(b)),
+    update: (b, historical) => series.update(toLW(b), historical),
     destroy: () => chart.remove(),
   };
 }

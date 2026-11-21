@@ -24,7 +24,7 @@ export function LiveChart({ instrument, tf }: { instrument: string; tf: GetCandl
         chart.setData(page.bars);
         return page.bars;
       },
-      onCandle: (c) => chart.update(c),
+      onCandle: (c, historical) => chart.update(c, historical),
     });
     return () => {
       stop();

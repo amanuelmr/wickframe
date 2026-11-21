@@ -15,24 +15,39 @@ export interface Candle {
 
 /**
  * Joins history with live updates: updates are held until the history has
- * loaded, then only those at or after its last bar are applied.
+ * loaded, then those at or after its last bar are applied, and older ones only
+ * if they correct a bar on the chart.
  */
 export class Stitcher {
   private held: Candle[] | null = [];
   private lastT = Number.NEGATIVE_INFINITY;
+  private readonly revs = new Map<number, number>();
 
-  constructor(private readonly apply: (c: Candle) => void) {}
+  /** apply gets historical true for a correction to a bar before the newest one. */
+  constructor(private readonly apply: (c: Candle, historical: boolean) => void) {}
 
   live(c: Candle): void {
-    if (this.held) this.held.push(c);
-    else if (c.t >= this.lastT) this.apply(c);
+    if (this.held) {
+      this.held.push(c);
+      return;
+    }
+    const shown = this.revs.get(c.t);
+    if (c.t > this.lastT || (c.t === this.lastT && c.rev >= (shown ?? 0))) {
+      this.lastT = c.t;
+      this.revs.set(c.t, c.rev);
+      this.apply(c, false);
+    } else if (shown !== undefined && c.rev > shown) {
+      this.revs.set(c.t, c.rev);
+      this.apply(c, true);
+    }
   }
 
-  /** Marks the history, whose newest bar opens at lastT, as loaded. */
-  loaded(lastT: number | undefined): void {
+  /** Marks the history, oldest bar first, as loaded. */
+  loaded(bars: { t: number; rev: number }[]): void {
+    for (const b of bars) this.revs.set(b.t, b.rev);
+    this.lastT = bars.at(-1)?.t ?? Number.NEGATIVE_INFINITY;
     const held = this.held ?? [];
     this.held = null;
-    if (lastT !== undefined) this.lastT = lastT;
     for (const c of held) this.live(c);
   }
 }
@@ -42,8 +57,8 @@ export interface StreamOptions {
   instrument: string;
   tf: string;
   /** Loads and shows the closed bars up to lastClosedT, after every subscribe. */
-  loadHistory(lastClosedT: number, signal: AbortSignal): Promise<{ t: number }[]>;
-  onCandle(c: Candle): void;
+  loadHistory(lastClosedT: number, signal: AbortSignal): Promise<{ t: number; rev: number }[]>;
+  onCandle(c: Candle, historical: boolean): void;
 }
 
 const backoff = { base: 500, max: 30_000 };
@@ -80,7 +95,7 @@ export function streamCandles(opts: StreamOptions): () => void {
         const s = new Stitcher(opts.onCandle);
         stitch = s;
         opts.loadHistory(msg.lastClosedT, history.signal).then(
-          (bars) => s.loaded(bars.at(-1)?.t),
+          (bars) => s.loaded(bars),
           () => sock.close(4000, 'history failed'),
         );
       } else if (msg.type === 'candle') {
