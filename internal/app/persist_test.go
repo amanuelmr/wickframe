@@ -53,7 +53,7 @@ func TestClosedBarsFromTheFakeConnectorAreStoredAcrossARestart(t *testing.T) {
 		store := openStore(t, dataDir)
 		defer func() { _ = store.Close() }()
 		hub := bus.New[marketdata.CandleUpdate]()
-		persister := marketdata.NewPersister(store, hub, demoID, marketdata.TF1m)
+		persister := marketdata.NewPersister(store, hub, marketdata.Series{InstrumentID: demoID, TF: marketdata.TF1m})
 		ctx, cancel := context.WithCancel(t.Context())
 		done := make(chan error, 1)
 		go func() { done <- persister.Run(ctx) }()

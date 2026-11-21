@@ -4,6 +4,8 @@ package marketdata_test
 
 import (
 	"context"
+	"errors"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -14,7 +16,10 @@ import (
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 )
 
-var demo = marketdata.StreamSub{Symbol: "DEMO", TF: marketdata.TF1m}
+var (
+	demo       = marketdata.StreamSub{Symbol: "DEMO", TF: marketdata.TF1m}
+	demoSeries = marketdata.Series{InstrumentID: 1, TF: marketdata.TF1m}
+)
 
 // recordingRepo records each batch with the time it was written. While block
 // is open, writes wait for it to close.
@@ -61,7 +66,7 @@ func TestSlowWriteDoesNotHoldThePublisherBack(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		hub := bus.New[marketdata.CandleUpdate]()
 		repo := &recordingRepo{block: make(chan struct{})}
-		stop := runPersister(t, marketdata.NewPersister(repo, hub, 1, marketdata.TF1m))
+		stop := runPersister(t, marketdata.NewPersister(repo, hub, demoSeries))
 		topic := marketdata.CandleTopic(1, marketdata.TF1m)
 
 		hub.Publish(topic, closedBar(0))
@@ -101,7 +106,7 @@ func TestPersisterWritesFullBatchesAtOnceAndTheRestAfterTheDelay(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		hub := bus.New[marketdata.CandleUpdate]()
 		repo := &recordingRepo{}
-		stop := runPersister(t, marketdata.NewPersister(repo, hub, 1, marketdata.TF1m))
+		stop := runPersister(t, marketdata.NewPersister(repo, hub, demoSeries))
 		start := time.Now()
 		for i := range 501 {
 			hub.Publish(marketdata.CandleTopic(1, marketdata.TF1m), closedBar(int64(i)))
@@ -118,6 +123,74 @@ func TestPersisterWritesFullBatchesAtOnceAndTheRestAfterTheDelay(t *testing.T) {
 		}
 		if at := []time.Duration{repo.at[0].Sub(start), repo.at[1].Sub(start)}; !slices.Equal(at, []time.Duration{0, 250 * time.Millisecond}) {
 			t.Errorf("batches written at %v, want [0s 250ms]", at)
+		}
+	})
+}
+
+func TestOneBatchSpansSeries(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		hub := bus.New[marketdata.CandleUpdate]()
+		repo := &recordingRepo{}
+		hourly := marketdata.Series{InstrumentID: 2, TF: marketdata.TF1h}
+		stop := runPersister(t, marketdata.NewPersister(repo, hub, demoSeries, hourly))
+		for i := range 300 {
+			hub.Publish(marketdata.CandleTopic(1, marketdata.TF1m), closedBar(int64(i)))
+			u := closedBar(int64(i) * 60)
+			u.Sub.TF = marketdata.TF1h
+			hub.Publish(marketdata.CandleTopic(2, marketdata.TF1h), u)
+		}
+		time.Sleep(time.Second)
+		stop()
+
+		perSeries := map[marketdata.Series]int{}
+		sizes := make([]int, 0, len(repo.batches))
+		for _, b := range repo.batches {
+			sizes = append(sizes, len(b))
+			for _, c := range b {
+				perSeries[marketdata.Series{InstrumentID: c.InstrumentID, TF: c.TF}]++
+			}
+		}
+		if !slices.Equal(sizes, []int{500, 100}) {
+			t.Errorf("wrote batches of %v candles, want [500 100]", sizes)
+		}
+		if want := map[marketdata.Series]int{demoSeries: 300, hourly: 300}; !maps.Equal(perSeries, want) {
+			t.Errorf("stored %v candles per series, want %v", perSeries, want)
+		}
+	})
+}
+
+func TestLaggingSeriesEndsRunAfterStoringWhatWasRead(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		hub := bus.New[marketdata.CandleUpdate]()
+		repo := &recordingRepo{block: make(chan struct{})}
+		p := marketdata.NewPersister(repo, hub, demoSeries)
+		done := make(chan error, 1)
+		go func() { done <- p.Run(t.Context()) }()
+
+		// Enough to fill the persister's buffer and the hub's queue while the
+		// first write is stuck, so the hub cuts the subscription off.
+		n := 2*bus.LosslessQueue + 2*500 + 10
+		for i := range n {
+			hub.Publish(marketdata.CandleTopic(1, marketdata.TF1m), closedBar(int64(i)))
+		}
+		close(repo.block)
+		err := <-done
+		if !errors.Is(err, bus.ErrLagging) {
+			t.Fatalf("Run = %v, want ErrLagging", err)
+		}
+		var got []int64
+		for _, b := range repo.batches {
+			for _, c := range b {
+				got = append(got, c.T/60_000)
+			}
+		}
+		for i, bar := range got {
+			if bar != int64(i) {
+				t.Fatalf("stored bar %d at position %d, want bars 0, 1, 2… in order", bar, i)
+			}
+		}
+		if len(got) < bus.LosslessQueue || len(got) >= n {
+			t.Errorf("stored %d of %d bars, want everything read before the cut-off", len(got), n)
 		}
 	})
 }

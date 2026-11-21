@@ -54,7 +54,7 @@ func Run(ctx context.Context, ln net.Listener, dataDir string, log *slog.Logger)
 
 	clk := clock.System{}
 	hub := bus.New[marketdata.CandleUpdate]()
-	persister := marketdata.NewPersister(store, hub, demoID, marketdata.TF1m)
+	persister := marketdata.NewPersister(store, hub, marketdata.Series{InstrumentID: demoID, TF: marketdata.TF1m})
 	connector := fake.New(fake.Demo(), clk)
 	instruments := map[string]int32{demoKey: demoID}
 	gateway := ws.New(hub, instruments, store.LastCandleT)
