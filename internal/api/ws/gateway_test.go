@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -64,7 +65,9 @@ func write(t *testing.T, c *websocket.Conn, msg string) {
 
 func expect(t *testing.T, c *websocket.Conn, want string) {
 	t.Helper()
-	_, got, err := c.Read(t.Context())
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	_, got, err := c.Read(ctx)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
@@ -84,6 +87,18 @@ func TestSubscribeRepliesThenStreamsCandles(t *testing.T) {
 
 	hub.Publish(demo, marketdata.CandleUpdate{T: 60_000, O: 1, H: 3, L: 0.5, C: 2.5, V: 7, Closed: true, Rev: 1})
 	expect(t, c, `{"type":"candle","sub":"c1","seq":2,"t":60000,"o":1,"h":3,"l":0.5,"c":2.5,"v":7,"state":"closed","rev":1}`)
+}
+
+func TestSubscriberGetsAClosedBarTheStoreDoesNotHaveYet(t *testing.T) {
+	hub, url, _ := start(t) // the store's newest bar opens at 120000
+	hub.Publish(demo, marketdata.CandleUpdate{T: 180_000, O: 1, H: 1, L: 1, C: 1, Closed: true})
+	hub.PublishConflatable(demo, marketdata.CandleUpdate{T: 240_000, O: 1, H: 1, L: 1, C: 1})
+	c := dial(t, url, Protocol)
+
+	write(t, c, `{"type":"subscribe","sub":"c1","channel":"candles","instrument":"fake:DEMO","tf":"1m"}`)
+	expect(t, c, `{"type":"subscribed","sub":"c1","seq":0,"lastClosedT":120000}`)
+	expect(t, c, `{"type":"candle","sub":"c1","seq":1,"t":180000,"o":1,"h":1,"l":1,"c":1,"v":0,"state":"closed","rev":0}`)
+	expect(t, c, `{"type":"candle","sub":"c1","seq":2,"t":240000,"o":1,"h":1,"l":1,"c":1,"v":0,"state":"forming","rev":0}`)
 }
 
 func TestInvalidMessagesGetAnErrorAndKeepTheConnection(t *testing.T) {

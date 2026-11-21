@@ -89,17 +89,30 @@ func TestFormingUpdateKeepsItsPlaceBeforeALaterClose(t *testing.T) {
 	}
 }
 
-func TestConflatingSubscriberStartsWithLatestEvent(t *testing.T) {
-	h := New[ev]()
-	publish(h, ev{1, 0, true}, ev{2, 0, false})
-	ui, lossless := h.Subscribe("a"), h.SubscribeLossless("a")
-	defer ui.Close()
-	defer lossless.Close()
+func TestConflatingSubscriberStartsWithTheNewestKeptAndConflatableEventsInOrder(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		published []ev
+		want      []ev
+	}{
+		{"forming after close", []ev{{1, 0, false}, {1, 0, true}, {2, 0, false}, {2, 0, false}}, []ev{{1, 0, true}, {2, 0, false}}},
+		{"correction after forming", []ev{{2, 0, true}, {3, 0, false}, {2, 1, true}}, []ev{{3, 0, false}, {2, 1, true}}},
+		{"only forming", []ev{{1, 0, false}}, []ev{{1, 0, false}}},
+		{"only kept", []ev{{1, 0, true}, {2, 0, true}}, []ev{{2, 0, true}}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			h := New[ev]()
+			publish(h, tt.published...)
+			ui, lossless := h.Subscribe("a"), h.SubscribeLossless("a")
+			defer ui.Close()
+			defer lossless.Close()
 
-	if diff := cmp.Diff([]ev{{2, 0, false}}, drain(t, ui, 1)); diff != "" {
-		t.Errorf("conflating (-want +got):\n%s", diff)
+			if diff := cmp.Diff(tt.want, drain(t, ui, len(tt.want))); diff != "" {
+				t.Errorf("conflating (-want +got):\n%s", diff)
+			}
+			drain(t, lossless, 0)
+		})
 	}
-	drain(t, lossless, 0)
 }
 
 func TestConflatingSubscriberLaggingForLagTimeoutIsCutOff(t *testing.T) {

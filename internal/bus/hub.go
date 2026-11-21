@@ -29,13 +29,20 @@ var errClosed = errors.New("subscription closed")
 // replaced by a newer one before a slow subscriber reads them.
 type Hub[T any] struct {
 	mu     sync.Mutex
-	latest map[string]T
+	recent map[string]*recent[T]
 	subs   map[string]map[*Sub[T]]struct{}
+}
+
+// recent holds a topic's newest kept and newest conflatable event.
+type recent[T any] struct {
+	kept, latest       T
+	hasKept, hasLatest bool
+	keptLast           bool
 }
 
 // New returns an empty Hub.
 func New[T any]() *Hub[T] {
-	return &Hub[T]{latest: make(map[string]T), subs: make(map[string]map[*Sub[T]]struct{})}
+	return &Hub[T]{recent: make(map[string]*recent[T]), subs: make(map[string]map[*Sub[T]]struct{})}
 }
 
 // Publish delivers v to every subscriber of topic. It blocks while a lossless
@@ -48,7 +55,17 @@ func (h *Hub[T]) PublishConflatable(topic string, v T) { h.publish(topic, v, fal
 
 func (h *Hub[T]) publish(topic string, v T, keep bool) {
 	h.mu.Lock()
-	h.latest[topic] = v
+	r := h.recent[topic]
+	if r == nil {
+		r = &recent[T]{}
+		h.recent[topic] = r
+	}
+	if keep {
+		r.kept, r.hasKept = v, true
+	} else {
+		r.latest, r.hasLatest = v, true
+	}
+	r.keptLast = keep
 	subs := make([]*Sub[T], 0, len(h.subs[topic]))
 	for s := range h.subs[topic] {
 		subs = append(subs, s)
@@ -60,7 +77,9 @@ func (h *Hub[T]) publish(topic string, v T, keep bool) {
 }
 
 // Subscribe returns a subscription for a UI client that starts with the
-// topic's latest event, if any. Publish never waits for it: past
+// topic's newest kept and newest conflatable event, in publish order. The kept
+// one covers a closed bar that storage may not hold yet. Publish never waits
+// for it: past
 // ConflatingQueue kept events it is lagging, and after LagTimeout of lagging it
 // ends with ErrLagging.
 func (h *Hub[T]) Subscribe(topic string) *Sub[T] {
@@ -85,8 +104,16 @@ func (h *Hub[T]) subscribe(topic string, lossless bool, size int) *Sub[T] {
 		h.subs[topic] = make(map[*Sub[T]]struct{})
 	}
 	h.subs[topic][s] = struct{}{}
-	if v, ok := h.latest[topic]; ok && !lossless {
-		s.push(v, false)
+	if r := h.recent[topic]; r != nil && !lossless {
+		if r.hasLatest && r.keptLast {
+			s.push(r.latest, false)
+		}
+		if r.hasKept {
+			s.push(r.kept, true)
+		}
+		if r.hasLatest && !r.keptLast {
+			s.push(r.latest, false)
+		}
 	}
 	return s
 }
