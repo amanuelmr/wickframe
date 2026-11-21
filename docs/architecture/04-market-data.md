@@ -118,7 +118,8 @@ re-verify them when implemented, because sources change their limits.
 
 Connectors emit `CandleUpdate{instrument, tf, candle, state, sourceSeq}`. Prices
 and volumes are parsed from the source's decimal strings with
-`strconv.ParseFloat(s, 64)`. The validator enforces the
+`feed.ParseDecimal`, which accepts only plain decimals and finite values.
+`strconv.ParseFloat` alone also accepts `NaN`, `Inf`, hex floats and underscores. The validator enforces the
 [candle invariants](03-domain-model.md#24-candle) and rejects invalid updates,
 logging and counting them.
 
