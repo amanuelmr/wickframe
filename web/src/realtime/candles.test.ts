@@ -14,36 +14,71 @@ const bar = (t: number, state: Candle['state'] = 'closed', rev = 0): Candle => (
   rev,
 });
 
+const shown = (...bars: [number, number][]) => bars.map(([t, rev]) => ({ t, rev }));
+
 describe('Stitcher', () => {
+  const stitcher = () => {
+    const got: [number, number, boolean][] = [];
+    const s = new Stitcher((c, historical) => got.push([c.t, c.rev, historical]));
+    return { s, got };
+  };
+
   test('holds updates that arrive before the history, then applies those at or after its last bar', () => {
-    const got: Candle[] = [];
-    const s = new Stitcher((c) => got.push(c));
-    s.live(bar(60_000, 'forming'));
-    s.live(bar(0, 'closed', 1)); // a correction older than the last history bar
+    const { s, got } = stitcher();
     s.live(bar(120_000, 'forming'));
+    s.live(bar(0, 'closed')); // older than the last history bar, and no correction
+    s.live(bar(180_000, 'forming'));
     expect(got).toEqual([]);
 
-    s.loaded(60_000);
-    expect(got).toEqual([bar(60_000, 'forming'), bar(120_000, 'forming')]);
+    s.loaded(shown([60_000, 0], [120_000, 0]));
+    expect(got).toEqual([
+      [120_000, 0, false],
+      [180_000, 0, false],
+    ]);
   });
 
   test('drops a later update that is older than the last history bar', () => {
-    const got: Candle[] = [];
-    const s = new Stitcher((c) => got.push(c));
-    s.loaded(120_000);
-    s.live(bar(60_000, 'closed', 1));
-    s.live(bar(120_000, 'closed', 1));
+    const { s, got } = stitcher();
+    s.loaded(shown([60_000, 0], [120_000, 0]));
+    s.live(bar(60_000, 'closed'));
     s.live(bar(180_000, 'forming'));
-    expect(got).toEqual([bar(120_000, 'closed', 1), bar(180_000, 'forming')]);
+    expect(got).toEqual([[180_000, 0, false]]);
+  });
+
+  test('applies a correction to any bar the chart shows, held or live', () => {
+    const { s, got } = stitcher();
+    s.live(bar(60_000, 'closed', 1)); // held until the history arrives
+    s.loaded(shown([0, 0], [60_000, 0], [120_000, 0]));
+    s.live(bar(180_000, 'forming'));
+    s.live(bar(0, 'closed', 2));
+    s.live(bar(120_000, 'closed', 1));
+    expect(got).toEqual([
+      [60_000, 1, true],
+      [180_000, 0, false],
+      [0, 2, true],
+      [120_000, 1, true],
+    ]);
+  });
+
+  test('ignores a correction the chart already has or a bar it does not show', () => {
+    const { s, got } = stitcher();
+    s.live(bar(60_000, 'closed', 1)); // the history already has rev 2
+    s.live(bar(120_000, 'closed', 1)); // the newest bar too
+    s.loaded(shown([60_000, 2], [120_000, 2]));
+    s.live(bar(0, 'closed', 5)); // before the first bar shown
+    s.live(bar(60_000, 'closed', 2));
+    expect(got).toEqual([]);
   });
 
   test('applies every update after an empty history', () => {
-    const got: Candle[] = [];
-    const s = new Stitcher((c) => got.push(c));
+    const { s, got } = stitcher();
     s.live(bar(0, 'forming'));
-    s.loaded(undefined);
+    s.loaded([]);
     s.live(bar(60_000, 'forming'));
-    expect(got).toEqual([bar(0, 'forming'), bar(60_000, 'forming')]);
+    expect(got).toEqual([
+      [0, 0, false],
+      [60_000, 0, false],
+    ]);
   });
 });
 
@@ -73,7 +108,7 @@ class FakeSocket {
 }
 
 describe('streamCandles', () => {
-  let history: { to: number; resolve: (bars: { t: number }[]) => void }[];
+  let history: { to: number; resolve: (bars: { t: number; rev: number }[]) => void }[];
   let got: Candle[];
   let stop: () => void;
 
@@ -117,7 +152,7 @@ describe('streamCandles', () => {
 
     ws.receive(candle(bar(120_000, 'forming')));
     expect(got).toEqual([]);
-    history[0]?.resolve([{ t: 0 }, { t: 60_000 }]);
+    history[0]?.resolve(shown([0, 0], [60_000, 0]));
     await vi.runAllTimersAsync();
     expect(got).toEqual([expect.objectContaining(bar(120_000, 'forming'))]);
   });
