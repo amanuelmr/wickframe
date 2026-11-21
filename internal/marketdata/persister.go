@@ -5,6 +5,7 @@ package marketdata
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/amanuelmr/wickframe/internal/bus"
@@ -19,61 +20,97 @@ const (
 	readAhead  = 8 * batchRows
 )
 
-// Persister stores the closed candles of one series. Forming updates are not
-// stored.
+// Persister stores the closed candles of a connector's series, in batches
+// that can span series. Forming updates are not stored.
 type Persister struct {
-	repo         CandleRepository
-	hub          *bus.Hub[CandleUpdate]
-	topic        string
-	instrumentID int32
-	sub          *bus.Sub[CandleUpdate]
+	repo   CandleRepository
+	hub    *bus.Hub[CandleUpdate]
+	series []Series
+	subs   []*bus.Sub[CandleUpdate]
 }
 
-// NewPersister returns a Persister that is already subscribed, so it misses no
-// candle published after NewPersister returns.
-func NewPersister(repo CandleRepository, hub *bus.Hub[CandleUpdate], instrumentID int32, tf Timeframe) *Persister {
-	topic := CandleTopic(instrumentID, tf)
-	return &Persister{repo: repo, hub: hub, topic: topic, instrumentID: instrumentID, sub: hub.SubscribeLossless(topic)}
+// Series is one instrument's candles in one timeframe.
+type Series struct {
+	InstrumentID int32
+	TF           Timeframe
+}
+
+// NewPersister returns a Persister that is already subscribed to every series,
+// so it misses no candle published after NewPersister returns.
+func NewPersister(repo CandleRepository, hub *bus.Hub[CandleUpdate], series ...Series) *Persister {
+	p := &Persister{repo: repo, hub: hub, series: series}
+	p.subs = p.subscribe()
+	return p
+}
+
+func (p *Persister) subscribe() []*bus.Sub[CandleUpdate] {
+	subs := make([]*bus.Sub[CandleUpdate], len(p.series))
+	for i, s := range p.series {
+		subs[i] = p.hub.SubscribeLossless(CandleTopic(s.InstrumentID, s.TF))
+	}
+	return subs
 }
 
 // Run stores closed candles until ctx is done, then stores the ones already
-// published and returns nil. It fails if a write fails or the subscription
-// falls too far behind; calling Run again resubscribes.
+// published and returns nil. It fails if a write fails or a subscription falls
+// too far behind, after storing what it had read; calling Run again
+// resubscribes.
 func (p *Persister) Run(ctx context.Context) error {
-	sub := p.sub
-	if sub == nil {
-		sub = p.hub.SubscribeLossless(p.topic)
+	subs := p.subs
+	if subs == nil {
+		subs = p.subscribe()
 	}
-	p.sub = nil
+	p.subs = nil
 
 	rows := make(chan Candle, readAhead)
-	var readErr error
-	go func() {
-		defer close(rows)
-		for {
-			u, err := sub.Next(ctx)
-			if err != nil {
-				readErr = err
-				return
+	var (
+		once    sync.Once
+		readErr error
+		readers sync.WaitGroup
+	)
+	// stop ends every subscription; each reader still reads what it has queued.
+	stop := func(err error) {
+		once.Do(func() {
+			readErr = err
+			for _, s := range subs {
+				s.Close()
 			}
-			if u.Closed {
-				rows <- Candle{
-					InstrumentID: p.instrumentID, TF: u.Sub.TF, T: u.T,
-					O: u.O, H: u.H, L: u.L, C: u.C, V: u.V, Rev: u.Rev,
+		})
+	}
+	for i, sub := range subs {
+		id := p.series[i].InstrumentID
+		readers.Go(func() {
+			for {
+				u, err := sub.Next(ctx)
+				if err != nil {
+					if ctx.Err() == nil {
+						stop(err)
+					}
+					return
+				}
+				if u.Closed {
+					rows <- Candle{
+						InstrumentID: id, TF: u.Sub.TF, T: u.T,
+						O: u.O, H: u.H, L: u.L, C: u.C, V: u.V, Rev: u.Rev,
+					}
 				}
 			}
-		}
+		})
+	}
+	go func() {
+		readers.Wait()
+		close(rows)
 	}()
 	// Writes outlive ctx, so the candles read before shutdown are stored.
 	err := p.write(context.WithoutCancel(ctx), rows)
-	sub.Close()
+	stop(nil)
 	for range rows {
 	}
 	if err != nil {
 		return err
 	}
-	if ctx.Err() == nil {
-		return fmt.Errorf("persist %s: %w", p.topic, readErr)
+	if readErr != nil {
+		return fmt.Errorf("persist: %w", readErr)
 	}
 	return nil
 }
@@ -108,7 +145,7 @@ func (p *Persister) upsert(ctx context.Context, batch []Candle) error {
 		return nil
 	}
 	if err := p.repo.UpsertCandles(ctx, batch); err != nil {
-		return fmt.Errorf("persist %s: %w", p.topic, err)
+		return fmt.Errorf("persist %d candles: %w", len(batch), err)
 	}
 	return nil
 }
