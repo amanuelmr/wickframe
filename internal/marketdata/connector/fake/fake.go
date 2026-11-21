@@ -68,13 +68,12 @@ type bar struct {
 }
 
 type series struct {
-	length  int64
-	cur     bar
-	last    bar
-	hasLast bool
+	length int64
+	cur    bar
+	closed []bar
 }
 
-// Connector plays a Scenario. Calls to Stream must not overlap.
+// Connector plays a Scenario. Calls to Stream and History must not overlap.
 type Connector struct {
 	sc     Scenario
 	clk    clock.Clock
@@ -97,7 +96,37 @@ func New(sc Scenario, clk clock.Clock) *Connector {
 
 // Info implements marketdata.Connector.
 func (f *Connector) Info() marketdata.ConnectorInfo {
-	return marketdata.ConnectorInfo{ID: "fake", Name: "Fake market"}
+	tfs := []marketdata.Timeframe{
+		marketdata.TF1m, marketdata.TF3m, marketdata.TF5m, marketdata.TF15m, marketdata.TF30m,
+		marketdata.TF1h, marketdata.TF2h, marketdata.TF4h, marketdata.TF6h, marketdata.TF12h,
+	}
+	return marketdata.ConnectorInfo{
+		ID: "fake", Name: "Fake market", Version: "1.0.0",
+		// The data is generated locally, so the project's own license covers it.
+		TermsURL:         "https://github.com/amanuelmr/wickframe/blob/main/LICENSE",
+		Auth:             marketdata.AuthNone,
+		Freshness:        marketdata.FreshnessRealtime,
+		NativeTimeframes: tfs,
+		StreamTimeframes: tfs,
+		SettingsSchema:   `{"type":"object","additionalProperties":false}`,
+	}
+}
+
+// History implements marketdata.Connector. The fake market's history is the
+// bars its streams have closed, with their corrections.
+func (f *Connector) History(ctx context.Context, req marketdata.HistoryRequest) ([]marketdata.Candle, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("fake history: %w", err)
+	}
+	var out []marketdata.Candle
+	if s := f.series[marketdata.StreamSub{Symbol: req.Symbol, TF: req.TF}]; s != nil {
+		for _, b := range s.closed {
+			if b.t >= req.From && b.t < req.To {
+				out = append(out, marketdata.Candle{TF: req.TF, T: b.t, O: b.o, H: b.h, L: b.l, C: b.c, V: b.v, Rev: b.rev})
+			}
+		}
+	}
+	return out, nil
 }
 
 // Stream implements marketdata.Connector. It returns nil when a scenario that
@@ -147,16 +176,17 @@ func (f *Connector) apply(kind Kind, sub marketdata.StreamSub, s *series, sink m
 		sink.Candle(update(sub, s.cur, false))
 	case Close:
 		sink.Candle(update(sub, s.cur, true))
-		s.last, s.hasLast = s.cur, true
+		s.closed = append(s.closed, s.cur)
 		c := s.cur.c
 		s.cur = bar{t: s.cur.t + s.length, o: c, h: c, l: c, c: c}
 	case Correct:
-		if !s.hasLast {
+		if len(s.closed) == 0 {
 			return
 		}
-		f.walk(&s.last)
-		s.last.rev++
-		sink.Candle(update(sub, s.last, true))
+		last := &s.closed[len(s.closed)-1]
+		f.walk(last)
+		last.rev++
+		sink.Candle(update(sub, *last, true))
 	case Disconnect:
 		// Stream returns before applying it.
 	}
