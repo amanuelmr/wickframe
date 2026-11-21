@@ -89,17 +89,23 @@ export function streamCandles(opts: StreamOptions): () => void {
         }),
       );
     sock.onmessage = (e: MessageEvent<string>) => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'subscribed') {
+      let msg: { type?: string; lastClosedT?: number } | null;
+      try {
+        msg = JSON.parse(e.data);
+      } catch {
+        console.warn('wickframe: skipped a malformed WebSocket message', e.data);
+        return;
+      }
+      if (msg?.type === 'subscribed') {
         failures = 0;
         const s = new Stitcher(opts.onCandle);
         stitch = s;
-        opts.loadHistory(msg.lastClosedT, history.signal).then(
+        opts.loadHistory(msg.lastClosedT ?? 0, history.signal).then(
           (bars) => s.loaded(bars),
           () => sock.close(4000, 'history failed'),
         );
-      } else if (msg.type === 'candle') {
-        stitch?.live(msg);
+      } else if (msg?.type === 'candle') {
+        stitch?.live(msg as Candle);
       }
     };
     sock.onclose = (e: CloseEvent) => {
