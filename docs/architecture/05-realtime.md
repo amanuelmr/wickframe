@@ -149,8 +149,15 @@ sequenceDiagram
 ```
 
 The client **buffers** WS updates received before the REST response arrives, then
-applies them, discarding any with `t` before the last REST bar. This avoids the
-classic "missing bar between history and live" race.
+applies them, discarding any with `t` before the last REST bar, except corrections
+to bars it already shows. This avoids the classic "missing bar between history and
+live" race.
+
+A new subscription starts with the newest closed (or corrected) update and the newest
+forming update the server has published, in publish order. The persister writes
+closed bars at most 250 ms after they are published, so the store can lag the
+stream by one bar at most; `lastClosedT` and the history may miss that bar, and
+this first update delivers it.
 
 ## 4. Capacity model (reference server)
 
