@@ -51,8 +51,10 @@ demos and screenshots, and needs no network.
 
 ### 2.2 Recorded fixtures for real connectors
 
-Real connectors are tested against **recorded** HTTP and WebSocket sessions
-(`testdata/connectors/<name>/`), sanitised of any credentials. A nightly,
+Real connectors are tested against HTTP and WebSocket fixtures
+(`testdata/connectors/<name>/`) written in the source's exact wire format with
+made-up values, because market data in the repo must be synthetic (§4). Each
+fixture directory's README says which documentation the format follows. A nightly,
 non-blocking **live smoke test** checks real public endpoints (crypto only, no
 keys) to detect upstream API changes early.
 
