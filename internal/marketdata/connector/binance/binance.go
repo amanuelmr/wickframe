@@ -106,7 +106,7 @@ func (c *Connector) Info() marketdata.ConnectorInfo {
 	}
 	return marketdata.ConnectorInfo{
 		ID: "binance", Name: "Binance", Version: "1.0.0",
-		TermsURL:         "https://developers.binance.com/en/docs/products/spot/PROD-TERMS-OF-USE",
+		TermsURL:         "https://www.binance.com/en/terms",
 		Auth:             marketdata.AuthNone,
 		Freshness:        marketdata.FreshnessRealtime,
 		NativeTimeframes: tfs,
