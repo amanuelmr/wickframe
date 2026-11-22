@@ -14,9 +14,14 @@ import (
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 )
 
-// Kline streams push every 2 s, so 10 s is five missed pushes: a dead stream
-// is caught well inside NFR-REL-02's 30 s.
-const silenceTimeout = 10 * time.Second
+const (
+	// Kline streams push every 2 s, so 10 s is five missed pushes: a dead
+	// stream is caught well inside NFR-REL-02's 30 s.
+	silenceTimeout = 10 * time.Second
+	subscribeBatch = 200 // stream names per SUBSCRIBE message
+	// Binance allows 5 incoming messages a second, pongs included.
+	subscribePace = 250 * time.Millisecond
+)
 
 // Stream implements marketdata.Connector. It uses one connection for all subs.
 func (c *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sink marketdata.StreamSink) error {
@@ -37,12 +42,15 @@ func (c *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sin
 	if err := c.dials.Reserve(ctx, 1); err != nil {
 		return fmt.Errorf("binance stream: %w", err)
 	}
-	conn, _, err := websocket.Dial(ctx, c.stream+"/stream?streams="+strings.Join(names, "/"), nil) //nolint:bodyclose // closed by the library on success
+	conn, _, err := websocket.Dial(ctx, c.stream+"/stream", nil) //nolint:bodyclose // closed by the library on success
 	if err != nil {
 		return fmt.Errorf("binance stream: %w", err)
 	}
 	defer conn.CloseNow() //nolint:errcheck // the stream is over either way
 	conn.SetReadLimit(1 << 20)
+	if err := subscribe(ctx, conn, names); err != nil {
+		return fmt.Errorf("binance stream: %w", err)
+	}
 
 	for {
 		rctx, cancel := context.WithTimeout(ctx, silenceTimeout)
@@ -58,6 +66,9 @@ func (c *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sin
 		if err := json.Unmarshal(data, &msg); err != nil {
 			return fmt.Errorf("binance stream: %w", err)
 		}
+		if msg.Error != nil {
+			return fmt.Errorf("binance stream: subscribe %d: %s (code %d)", msg.ID, msg.Error.Msg, msg.Error.Code)
+		}
 		sub, ok := byName[msg.Stream]
 		if !ok || msg.Data.Event != "kline" {
 			continue
@@ -70,15 +81,52 @@ func (c *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sin
 	}
 }
 
-// streamMessage is a combined-stream message carrying a kline event.
+// subscribe sends SUBSCRIBE messages for names in paced batches. Binance
+// answers each by its id, which Stream checks as it reads.
+func subscribe(ctx context.Context, conn *websocket.Conn, names []string) error {
+	for i := 0; i*subscribeBatch < len(names); i++ {
+		if i > 0 {
+			timer := time.NewTimer(subscribePace)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return fmt.Errorf("subscribe: %w", ctx.Err())
+			case <-timer.C:
+			}
+		}
+		msg, err := json.Marshal(subscribeMessage{
+			Method: "SUBSCRIBE", Params: names[i*subscribeBatch : min((i+1)*subscribeBatch, len(names))], ID: i + 1,
+		})
+		if err != nil {
+			return fmt.Errorf("subscribe: %w", err)
+		}
+		if err := conn.Write(ctx, websocket.MessageText, msg); err != nil {
+			return fmt.Errorf("subscribe: %w", err)
+		}
+	}
+	return nil
+}
+
+type subscribeMessage struct {
+	Method string   `json:"method"`
+	Params []string `json:"params"`
+	ID     int      `json:"id"`
+}
+
+// streamMessage is a combined-stream message carrying a kline event, or the
+// answer to a SUBSCRIBE.
 type streamMessage struct {
+	ID    int `json:"id"`
+	Error *struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	} `json:"error"`
 	Stream string `json:"stream"`
 	Data   struct {
 		Event string      `json:"e"`
 		K     klineUpdate `json:"k"`
 	} `json:"data"`
 }
-
 type klineUpdate struct {
 	T      int64  `json:"t"`
 	O      string `json:"o"`

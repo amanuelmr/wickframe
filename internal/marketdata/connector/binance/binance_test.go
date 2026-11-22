@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -125,14 +127,30 @@ func newConnector(src http.RoundTripper, now time.Time, streamURL string) *binan
 	})
 }
 
-// streamServer serves kline_stream.jsonl to a client of the given streams,
-// then waits for it to leave.
-func streamServer(t *testing.T, wantStreams string) string {
+// streamScript is what streamServer expects and sends.
+type streamScript struct {
+	streams []string         // names the client must subscribe to, in order
+	reply   func(id int) any // answer to each SUBSCRIBE; nil acknowledges it
+	then    [][]byte         // sent once every stream is subscribed
+}
+
+type subscribeCall struct {
+	params []string
+	at     time.Time
+}
+
+// streamServer accepts one client on /stream, reads SUBSCRIBE messages until
+// it has every stream, answering each, then sends the script's messages and
+// waits for the client to leave. It returns the URL and the calls it got.
+func streamServer(t *testing.T, sc streamScript) (string, func() []subscribeCall) {
 	t.Helper()
-	lines := bytes.Split(bytes.TrimSpace(fixture(t, "kline_stream.jsonl")), []byte("\n"))
+	var (
+		mu    sync.Mutex
+		calls []subscribeCall
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.URL.Query().Get("streams"); r.URL.Path != "/stream" || got != wantStreams {
-			http.Error(w, "unexpected streams "+got, http.StatusBadRequest)
+		if r.URL.Path != "/stream" || r.URL.RawQuery != "" {
+			http.Error(w, "want /stream without streams", http.StatusBadRequest)
 			return
 		}
 		c, err := websocket.Accept(w, r, nil)
@@ -140,15 +158,54 @@ func streamServer(t *testing.T, wantStreams string) string {
 			return
 		}
 		defer c.CloseNow() //nolint:errcheck // test server
-		for _, l := range lines {
-			if c.Write(r.Context(), websocket.MessageText, l) != nil {
+		var got []string
+		for len(got) < len(sc.streams) {
+			_, data, err := c.Read(r.Context())
+			if err != nil {
+				return
+			}
+			var m struct {
+				Method string   `json:"method"`
+				Params []string `json:"params"`
+				ID     int      `json:"id"`
+			}
+			if json.Unmarshal(data, &m) != nil || m.Method != "SUBSCRIBE" {
+				return
+			}
+			mu.Lock()
+			calls = append(calls, subscribeCall{m.Params, time.Now()})
+			mu.Unlock()
+			got = append(got, m.Params...)
+			var answer any = map[string]any{"result": nil, "id": m.ID}
+			if sc.reply != nil {
+				answer = sc.reply(m.ID)
+			}
+			b, _ := json.Marshal(answer)
+			if c.Write(r.Context(), websocket.MessageText, b) != nil {
+				return
+			}
+		}
+		if !slices.Equal(got, sc.streams) {
+			return
+		}
+		for _, m := range sc.then {
+			if c.Write(r.Context(), websocket.MessageText, m) != nil {
 				return
 			}
 		}
 		_, _, _ = c.Read(r.Context())
 	}))
 	t.Cleanup(srv.Close)
-	return "ws" + strings.TrimPrefix(srv.URL, "http")
+	return "ws" + strings.TrimPrefix(srv.URL, "http"), func() []subscribeCall {
+		mu.Lock()
+		defer mu.Unlock()
+		return slices.Clone(calls)
+	}
+}
+
+func fixtureLines(t *testing.T) [][]byte {
+	t.Helper()
+	return bytes.Split(bytes.TrimSpace(fixture(t, "kline_stream.jsonl")), []byte("\n"))
 }
 
 var btc1m = marketdata.StreamSub{Symbol: "BTCUSDT", TF: marketdata.TF1m}
@@ -156,7 +213,8 @@ var btc1m = marketdata.StreamSub{Symbol: "BTCUSDT", TF: marketdata.TF1m}
 func TestConformance(t *testing.T) {
 	connectortest.Run(t, connectortest.Fixture{
 		New: func(t *testing.T) marketdata.Connector {
-			return newConnector(&source{bars: 2500}, time.UnixMilli(t0+3000*minute), streamServer(t, "btcusdt@kline_1m"))
+			url, _ := streamServer(t, streamScript{streams: []string{"btcusdt@kline_1m"}, then: fixtureLines(t)})
+			return newConnector(&source{bars: 2500}, time.UnixMilli(t0+3000*minute), url)
 		},
 		// 2100 bars take three requests of at most 1000.
 		History: marketdata.HistoryRequest{Symbol: "BTCUSDT", TF: marketdata.TF1m, From: t0, To: t0 + 2100*minute},
@@ -279,7 +337,8 @@ type sinkFunc func(marketdata.CandleUpdate)
 func (f sinkFunc) Candle(u marketdata.CandleUpdate) { f(u) }
 
 func TestStreamTranslatesTheFixtureInOrder(t *testing.T) {
-	c := newConnector(&source{}, time.UnixMilli(t0), streamServer(t, "btcusdt@kline_1m/ethusdt@kline_1h"))
+	url, _ := streamServer(t, streamScript{streams: []string{"btcusdt@kline_1m", "ethusdt@kline_1h"}, then: fixtureLines(t)})
+	c := newConnector(&source{}, time.UnixMilli(t0), url)
 	updates := make(chan marketdata.CandleUpdate, 10)
 	done := make(chan error, 1)
 	ctx, stop := context.WithCancel(t.Context())
@@ -324,5 +383,71 @@ func TestFixturesAreValidJSON(t *testing.T) {
 		if !jsontext.Value(sc.Bytes()).IsValid() {
 			t.Errorf("kline_stream.jsonl has an invalid line: %s", sc.Bytes())
 		}
+	}
+}
+
+// runStream runs Stream until want updates arrive or it returns, then stops it
+// and returns the updates and Stream's error.
+func runStream(t *testing.T, c *binance.Connector, subs []marketdata.StreamSub, want int) ([]marketdata.CandleUpdate, error) {
+	t.Helper()
+	ctx, stop := context.WithCancel(t.Context())
+	defer stop()
+	updates := make(chan marketdata.CandleUpdate, want)
+	done := make(chan error, 1)
+	go func() { done <- c.Stream(ctx, subs, sinkFunc(func(u marketdata.CandleUpdate) { updates <- u })) }()
+	var got []marketdata.CandleUpdate
+	for len(got) < want {
+		select {
+		case u := <-updates:
+			got = append(got, u)
+		case err := <-done:
+			return got, err
+		case <-time.After(10 * time.Second):
+			t.Fatalf("got %d updates in 10s, want %d", len(got), want)
+		}
+	}
+	stop()
+	return got, <-done
+}
+
+func TestStreamSubscribesTheMaximumStreamsInPacedBatches(t *testing.T) {
+	subs := make([]marketdata.StreamSub, 1024)
+	names := make([]string, len(subs))
+	for i := range subs {
+		subs[i] = marketdata.StreamSub{Symbol: fmt.Sprintf("SYM%04dUSDT", i), TF: marketdata.TF1m}
+		names[i] = fmt.Sprintf("sym%04dusdt@kline_1m", i)
+	}
+	last := fmt.Sprintf(`{"stream":%q,"data":{"e":"kline","k":{"t":%d,"o":"1","h":"1","l":"1","c":"1","v":"0","x":false}}}`, names[1023], t0)
+	url, calls := streamServer(t, streamScript{streams: names, then: [][]byte{[]byte(last)}})
+	c := newConnector(&source{}, time.UnixMilli(t0), url)
+
+	got, err := runStream(t, c, subs, 1)
+	if !errors.Is(err, context.Canceled) || len(got) != 1 || got[0].Sub != subs[1023] {
+		t.Fatalf("Stream = %+v, %v; want the last stream's update, then context.Canceled", got, err)
+	}
+	sent := calls()
+	sizes := make([]int, 0, len(sent))
+	for i, call := range sent {
+		sizes = append(sizes, len(call.params))
+		// A timer never fires early, so a gap shorter than the pace is a bug.
+		if gap := call.at.Sub(sent[max(i-1, 0)].at); i > 0 && gap < 240*time.Millisecond {
+			t.Errorf("SUBSCRIBE %d came %v after the previous one, want at most 4 a second", i+1, gap)
+		}
+	}
+	if !slices.Equal(sizes, []int{200, 200, 200, 200, 200, 24}) {
+		t.Errorf("SUBSCRIBE batches of %v names, want [200 200 200 200 200 24]", sizes)
+	}
+	if err := c.Stream(t.Context(), make([]marketdata.StreamSub, 1025), nil); err == nil {
+		t.Error("Stream of 1025 subscriptions succeeded")
+	}
+}
+
+func TestStreamEndsWhenASubscribeFails(t *testing.T) {
+	url, _ := streamServer(t, streamScript{streams: []string{"btcusdt@kline_1m"}, reply: func(id int) any {
+		return map[string]any{"error": map[string]any{"code": 2, "msg": "Invalid request: unknown stream"}, "id": id}
+	}})
+	_, err := runStream(t, newConnector(&source{}, time.UnixMilli(t0), url), []marketdata.StreamSub{btc1m}, 1)
+	if err == nil || !strings.Contains(err.Error(), "Invalid request: unknown stream (code 2)") {
+		t.Errorf("Stream = %v, want Binance's subscribe error", err)
 	}
 }
