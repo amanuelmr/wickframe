@@ -50,6 +50,8 @@ type Options struct {
 	RESTURL, StreamURL string
 	HTTPClient         *http.Client // for REST requests
 	Clock              clock.Clock
+	// Limiters shares rate limits with other connectors on the same hosts.
+	Limiters *marketdata.HostLimiters
 }
 
 // Connector reads Binance spot klines.
@@ -78,9 +80,20 @@ func New(o Options) *Connector {
 	if c.clk == nil {
 		c.clk = clock.System{}
 	}
-	c.weight = marketdata.NewLimiter(c.clk, limits.RequestWeight, limits.RequestWeightWindow)
-	c.dials = marketdata.NewLimiter(c.clk, limits.ConnectionAttempts, limits.ConnectionAttemptsWindow)
+	hl := o.Limiters
+	if hl == nil {
+		hl = marketdata.NewHostLimiters(c.clk)
+	}
+	c.weight = hl.Get(host(c.rest)+" weight", limits.RequestWeight, limits.RequestWeightWindow)
+	c.dials = hl.Get(host(c.stream)+" connections", limits.ConnectionAttempts, limits.ConnectionAttemptsWindow)
 	return c
+}
+
+func host(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return rawURL
 }
 
 // Info implements marketdata.Connector.
