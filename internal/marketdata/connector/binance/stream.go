@@ -14,9 +14,9 @@ import (
 	"github.com/amanuelmr/wickframe/internal/marketdata"
 )
 
-// Binance pings every 20 s and kline streams push every 2 s, so a connection
-// silent for twice the ping interval is dead.
-const silenceTimeout = 40 * time.Second
+// Kline streams push every 2 s, so 10 s is five missed pushes: a dead stream
+// is caught well inside NFR-REL-02's 30 s.
+const silenceTimeout = 10 * time.Second
 
 // Stream implements marketdata.Connector. It uses one connection for all subs.
 func (c *Connector) Stream(ctx context.Context, subs []marketdata.StreamSub, sink marketdata.StreamSink) error {
