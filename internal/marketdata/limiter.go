@@ -109,3 +109,30 @@ func (l *Limiter) roll() time.Time {
 	}
 	return now
 }
+
+// HostLimiters hands out one Limiter per host and limit, so every connector
+// that reaches a host shares its budget.
+type HostLimiters struct {
+	clk clock.Clock
+	mu  sync.Mutex
+	m   map[string]*Limiter
+}
+
+// NewHostLimiters returns an empty HostLimiters.
+func NewHostLimiters(clk clock.Clock) *HostLimiters {
+	return &HostLimiters{clk: clk, m: make(map[string]*Limiter)}
+}
+
+// Get returns the Limiter for a host and limit name, such as
+// "data-api.binance.vision weight", creating it with limit per window on first
+// use.
+func (h *HostLimiters) Get(key string, limit int, window time.Duration) *Limiter {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	l := h.m[key]
+	if l == nil {
+		l = NewLimiter(h.clk, limit, window)
+		h.m[key] = l
+	}
+	return l
+}

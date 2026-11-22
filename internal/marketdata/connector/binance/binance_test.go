@@ -317,6 +317,35 @@ func TestUsedWeightHeaderHoldsTheNextRequestBack(t *testing.T) {
 	})
 }
 
+func TestConnectorsOnTheSameHostShareTheWeightBudget(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		time.Sleep(time.Until(time.Now().Truncate(time.Minute).Add(time.Minute + 10*time.Second)))
+		shared := marketdata.NewHostLimiters(later{})
+		newOn := func(restURL string, src *source) *binance.Connector {
+			return binance.New(binance.Options{RESTURL: restURL, HTTPClient: &http.Client{Transport: src}, Clock: later{}, Limiters: shared})
+		}
+		req := marketdata.HistoryRequest{Symbol: "BTCUSDT", TF: marketdata.TF1m, From: t0, To: t0 + minute}
+		// The first connector learns that 5999 of the IP's 6000 weight is used.
+		if _, err := newOn(binance.DefaultRESTURL, &source{bars: 1, usedHdr: "5999"}).History(t.Context(), req); err != nil {
+			t.Fatal(err)
+		}
+
+		start := time.Now()
+		if _, err := newOn("https://api.binance.us", &source{bars: 1}).History(t.Context(), req); err != nil {
+			t.Fatal(err)
+		}
+		if waited := time.Since(start); waited != 0 {
+			t.Errorf("a connector on another host waited %v", waited)
+		}
+		if _, err := newOn(binance.DefaultRESTURL, &source{bars: 1}).History(t.Context(), req); err != nil {
+			t.Fatal(err)
+		}
+		if waited := time.Since(start); waited != 50*time.Second {
+			t.Errorf("a second connector on the same host waited %v, want the 50s left in the minute", waited)
+		}
+	})
+}
+
 func TestHistoryRejectsAMalformedKline(t *testing.T) {
 	for _, body := range []string{
 		`[[1767225600000,"NaN","1","1","1","1",1767225659999,"1",1,"0","0","0"]]`,
